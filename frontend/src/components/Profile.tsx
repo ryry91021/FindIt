@@ -7,7 +7,7 @@ interface ProfileProps {
 
 // This component was previously a Profile page. It's now a blank Dashboard
 // placeholder. You can rename the file or component later if desired.
-export const Profile: React.FC<ProfileProps> = ({ userEmail, onLogout }) => {
+export const DashboardUI: React.FC<ProfileProps> = ({ userEmail, onLogout }) => {
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Dashboard</h1>
