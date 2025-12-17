@@ -1,7 +1,6 @@
 \documentclass[12pt]{cornell}
 \pdfoutput=1
 
-
 % ------------------------------
 % Core packages
 % ------------------------------
@@ -11,7 +10,6 @@
 \usepackage{color}
 \usepackage{fancyhdr}
 \usepackage{float}
-% \usepackage{setspace} % (Removed: cornell class already provides \singlespacing/\doublespacing)
 \usepackage{listings}
 \usepackage{amsfonts, amssymb, amsmath, bm}
 \usepackage{tabularx,colortbl}
@@ -50,10 +48,9 @@
 \newtheorem{theorem}{Theorem}[chapter]
 \newtheorem{definition}{Definition}[chapter]
 
-% Use non-italic style for spec-like blocks
 \theoremstyle{definition}
 
-% ===== Requirements (numbered per chapter) =====
+% ===== Requirements =====
 \newtheorem{reqF}{Functional Requirement}[chapter]
 \renewcommand{\thereqF}{F-\thechapter.\arabic{reqF}}
 
@@ -77,7 +74,7 @@
 \newtheorem{userStory}{User Story}[chapter]
 \renewcommand{\theuserStory}{US-\thechapter.\arabic{userStory}}
 
-% \autoref names (hyperref)
+% hyperref names
 \providecommand*{\reqFautorefname}{Functional Requirement}
 \providecommand*{\reqQautorefname}{Quality Requirement}
 \providecommand*{\reqCautorefname}{Constraint Requirement}
@@ -86,13 +83,11 @@
 \providecommand*{\useCaseautorefname}{Use Case}
 \providecommand*{\userStoryautorefname}{User Story}
 
-% Optional ID helper
 \providecommand{\reqid}[1]{\textbf{[#1]}}
 
 % ------------------------------
-% Versioning file (auto-generated)
+% Versioning
 % ------------------------------
-% Make sure latex/version.tex exists (created by update_version.sh)
 \IfFileExists{rrcversion.tex}{\input{rrcversion.tex}}{
   \newcommand{\version}{v0.0.0}
   \newcommand{\commit}{unknown}
@@ -100,15 +95,14 @@
 }
 
 % ------------------------------
-% Glossary setup
+% Glossary
 % ------------------------------
-% Use glossaries-extra for chapter/numberedsection options you wanted
 \usepackage[toc,section=chapter,numberedsection=autolabel]{glossaries-extra}
 \makenoidxglossaries
 \input{rrcGlossary}
 
 % ------------------------------
-% Include list (optional)
+% Include control
 % ------------------------------
 \includeonly{
   prologue,
@@ -128,55 +122,49 @@
   rrcDevNotes
 }
 
-% ==== Dynamic requirement counters ====
-\newcounter{FR}[chapter]   \renewcommand{\theFR}{FR\arabic{FR}}
-\newcounter{CR}[chapter]   \renewcommand{\theCR}{CR\arabic{CR}}
-\newcounter{QR}[chapter]   \renewcommand{\theQR}{QR\arabic{QR}}
-\newcounter{SR}[chapter]   \renewcommand{\theSR}{SR\arabic{SR}}
-\newcounter{NFR}[chapter]  \renewcommand{\theNFR}{NFR\arabic{NFR}}
-\newcounter{BR}[chapter]   \renewcommand{\theBR}{BR\arabic{BR}}
-\newcounter{ER}[chapter]   \renewcommand{\theER}{ER\arabic{ER}}
-\newcounter{EN}[chapter]   \renewcommand{\theEN}{EN\arabic{EN}}
-% If you want chapter-aware IDs like FR2.3 etc., use:
-% \renewcommand{\theFR}{FR\thechapter.\arabic{FR}}  % ...and similarly for the others
+% ------------------------------
+% Dynamic requirement counters
+% ------------------------------
+\newcounter{FR}[chapter]
+\renewcommand{\theFR}{FR\arabic{FR}}
+
+\newcounter{CR}[chapter]
+\renewcommand{\theCR}{CR\arabic{CR}}
+
+\newcounter{QR}[chapter]
+\renewcommand{\theQR}{QR\arabic{QR}}
+
+\newcounter{BR}[chapter]
+\renewcommand{\theBR}{BR\arabic{BR}}
 
 \makeatletter
 \newcommand{\RequirementLabel}[2]{%
-  \refstepcounter{#1}% increment FR/CR/QR/etc.
-  \label{#2}% store semantic label
+  \refstepcounter{#1}%
+  \label{#2}%
   \textbf{\csname the#1\endcsname}~(\texttt{#2})%
 }
 \makeatother
 
-
-% Reference macro (new): takes ONLY the label key
-% Usage: \RequirementRef{reqfGeofence}
 \newcommand{\RequirementRef}[1]{%
   \hyperref[#1]{\textbf{\ref*{#1}}}%
 }
-
-% Backward compatibility: keep your existing calls working
-% \RequirementReference{FR}{reqfGeofence} -> uses only the label key
 \newcommand{\RequirementReference}[2]{\RequirementRef{#2}}
 
-% Use-case / story helpers (expects \label{...} at targets)
-\newcommand{\UseCaseReference}[1]{\hyperref[#1]{#1}}
-\newcommand{\StoryReference}[1]{\hyperref[#1]{#1}}
-\makeatother
-
-% ==== Dynamic User Stories ====
+% ------------------------------
+% User Story helpers (SINGLE definition)
+% ------------------------------
 \newcounter{US}[chapter]
-\renewcommand{\theUS}{US\arabic{US}}         % or US\thechapter.\arabic{US} if you want chapter-aware IDs
+\renewcommand{\theUS}{US\arabic{US}}
 
-% Prints bold auto-number and defines a label. Usage: \StoryLabel{usParentAutism}{US1}
 \newcommand{\StoryLabel}[2]{%
   \refstepcounter{US}%
   \label{#1}%
   \textbf{\theUS}%
 }
 
-% Linked reference to a story label. Usage: \StoryReference{usParentAutism}
-\newcommand{\StoryReference}[1]{\hyperref[#1]{\textbf{\ref*{#1}}}}
+\newcommand{\StoryReference}[1]{%
+  \hyperref[#1]{\textbf{\ref*{#1}}}%
+}
 
 % ------------------------------
 % Document
@@ -203,7 +191,7 @@
 \pagenumbering{arabic}
 \pagestyle{fancy}
 
-\fancyhf{} % clear all
+\fancyhf{}
 \lhead{Chapter \thechapter}
 \chead{\leftmark}
 \rhead{\thepage}
@@ -252,3 +240,4 @@
 \printindex
 
 \end{document}
+
