@@ -1,0 +1,53 @@
+% File: prologue.tex
+% ---------------------------------------------------------
+% Title page, abstract, ToC, list of figures/tables
+% For Cornell class documents (integrated with manual.tex)
+% ---------------------------------------------------------
+
+% ------------------------------
+% Title Page
+% ------------------------------
+\begin{titlepage}
+    \title{FindIt: A LoRaWAN-Based Asset Tracking System}
+    \author{Ryan Davis, Cory Vitanza, and Roy Tas \\[0.5em]
+            Group 2 \\ Stevens Institute of Technology}
+    \conferraldate{}{Fall 2025}
+
+    \maketitle
+
+    \vspace{2em}
+    \begin{center}
+        {\large Version \version\ (\commit)}\\[0.3em]
+        {\small Build Date: \builddate}
+    \end{center}
+\end{titlepage}
+
+% ------------------------------
+% Copyright Page
+% ------------------------------
+\makecopyright
+
+% ------------------------------
+% Abstract
+% ------------------------------
+\begin{abstract}
+    \input{abstract}  % includes contents of abstract.tex
+\end{abstract}
+
+% ------------------------------
+% Dedication or acknowledgements (optional)
+% ------------------------------
+% \begin{acknowledgements}
+%     \input{acknow}
+% \end{acknowledgements}
+
+% ------------------------------
+% Table of Contents
+% ------------------------------
+\contentspage
+
+% ------------------------------
+% List of Tables and Figures
+% ------------------------------
+\tablelistpage
+\figurelistpage

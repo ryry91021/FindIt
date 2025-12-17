@@ -1,0 +1,254 @@
+\documentclass[12pt]{cornell}
+\pdfoutput=1
+
+
+% ------------------------------
+% Core packages
+% ------------------------------
+\usepackage{makeidx}
+\makeindex
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{fancyhdr}
+\usepackage{float}
+% \usepackage{setspace} % (Removed: cornell class already provides \singlespacing/\doublespacing)
+\usepackage{listings}
+\usepackage{amsfonts, amssymb, amsmath, bm}
+\usepackage{tabularx,colortbl}
+\usepackage[chapter]{algorithm}
+\usepackage{algorithmic}
+\usepackage{tocloft}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{xspace}
+\usepackage{tcolorbox}
+\usepackage{txfonts}
+
+% ------------------------------
+% Hyperlinks (load late)
+% ------------------------------
+\usepackage[
+  breaklinks=true,
+  colorlinks=true,
+  citecolor=blue,
+  linkcolor=blue,
+  urlcolor=blue
+]{hyperref}
+
+% ------------------------------
+% Fonts and theorem-like environments
+% ------------------------------
+\newfont{\Bp}{msbm10}
+\newfont{\BpBig}{msbm10 scaled\magstep2}
+\newfont{\FrBig}{eufm10 scaled\magstep1}
+
+% Avoid \openbox clash between txfonts and amsthm
+\let\openbox\relax
+\usepackage{amsthm}
+
+% Classic theorem/definition (number per chapter)
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{definition}{Definition}[chapter]
+
+% Use non-italic style for spec-like blocks
+\theoremstyle{definition}
+
+% ===== Requirements (numbered per chapter) =====
+\newtheorem{reqF}{Functional Requirement}[chapter]
+\renewcommand{\thereqF}{F-\thechapter.\arabic{reqF}}
+
+\newtheorem{reqQ}{Quality Requirement}[chapter]
+\renewcommand{\thereqQ}{Q-\thechapter.\arabic{reqQ}}
+
+\newtheorem{reqC}{Constraint Requirement}[chapter]
+\renewcommand{\thereqC}{C-\thechapter.\arabic{reqC}}
+
+\newtheorem{reqI}{Interface Requirement}[chapter]
+\renewcommand{\thereqI}{I-\thechapter.\arabic{reqI}}
+
+\newtheorem{reqB}{Business Requirement}[chapter]
+\renewcommand{\thereqB}{B-\thechapter.\arabic{reqB}}
+
+% ===== Use Cases =====
+\newtheorem{useCase}{Use Case}[chapter]
+\renewcommand{\theuseCase}{UC-\thechapter.\arabic{useCase}}
+
+% ===== User Stories =====
+\newtheorem{userStory}{User Story}[chapter]
+\renewcommand{\theuserStory}{US-\thechapter.\arabic{userStory}}
+
+% \autoref names (hyperref)
+\providecommand*{\reqFautorefname}{Functional Requirement}
+\providecommand*{\reqQautorefname}{Quality Requirement}
+\providecommand*{\reqCautorefname}{Constraint Requirement}
+\providecommand*{\reqIautorefname}{Interface Requirement}
+\providecommand*{\reqBautorefname}{Business Requirement}
+\providecommand*{\useCaseautorefname}{Use Case}
+\providecommand*{\userStoryautorefname}{User Story}
+
+% Optional ID helper
+\providecommand{\reqid}[1]{\textbf{[#1]}}
+
+% ------------------------------
+% Versioning file (auto-generated)
+% ------------------------------
+% Make sure latex/version.tex exists (created by update_version.sh)
+\IfFileExists{rrcversion.tex}{\input{rrcversion.tex}}{
+  \newcommand{\version}{v0.0.0}
+  \newcommand{\commit}{unknown}
+  \newcommand{\builddate}{\today}
+}
+
+% ------------------------------
+% Glossary setup
+% ------------------------------
+% Use glossaries-extra for chapter/numberedsection options you wanted
+\usepackage[toc,section=chapter,numberedsection=autolabel]{glossaries-extra}
+\makenoidxglossaries
+\input{rrcGlossary}
+
+% ------------------------------
+% Include list (optional)
+% ------------------------------
+\includeonly{
+  prologue,
+  rrcIntroduction,
+  rrcDevelopmentPlan,
+  rrcRequirements,
+  rrcUserStories,
+  rrcUseCases,
+  rrcUserInterfaceDesign,
+  rrcLogicalView,
+  rrcDevelopmentView,
+  rrcProcessView,
+  rrcPhysicalView,
+  rrcPreliminaryImplementation,
+  rrcWeeklyReports,
+  rrcTeamDeclaration,
+  rrcDevNotes
+}
+
+% ==== Dynamic requirement counters ====
+\newcounter{FR}[chapter]   \renewcommand{\theFR}{FR\arabic{FR}}
+\newcounter{CR}[chapter]   \renewcommand{\theCR}{CR\arabic{CR}}
+\newcounter{QR}[chapter]   \renewcommand{\theQR}{QR\arabic{QR}}
+\newcounter{SR}[chapter]   \renewcommand{\theSR}{SR\arabic{SR}}
+\newcounter{NFR}[chapter]  \renewcommand{\theNFR}{NFR\arabic{NFR}}
+\newcounter{BR}[chapter]   \renewcommand{\theBR}{BR\arabic{BR}}
+\newcounter{ER}[chapter]   \renewcommand{\theER}{ER\arabic{ER}}
+\newcounter{EN}[chapter]   \renewcommand{\theEN}{EN\arabic{EN}}
+% If you want chapter-aware IDs like FR2.3 etc., use:
+% \renewcommand{\theFR}{FR\thechapter.\arabic{FR}}  % ...and similarly for the others
+
+\makeatletter
+\newcommand{\RequirementLabel}[2]{%
+  \refstepcounter{#1}% increment FR/CR/QR/etc.
+  \label{#2}% store semantic label
+  \textbf{\csname the#1\endcsname}~(\texttt{#2})%
+}
+\makeatother
+
+
+% Reference macro (new): takes ONLY the label key
+% Usage: \RequirementRef{reqfGeofence}
+\newcommand{\RequirementRef}[1]{%
+  \hyperref[#1]{\textbf{\ref*{#1}}}%
+}
+
+% Backward compatibility: keep your existing calls working
+% \RequirementReference{FR}{reqfGeofence} -> uses only the label key
+\newcommand{\RequirementReference}[2]{\RequirementRef{#2}}
+
+% Use-case / story helpers (expects \label{...} at targets)
+\newcommand{\UseCaseReference}[1]{\hyperref[#1]{#1}}
+\newcommand{\StoryReference}[1]{\hyperref[#1]{#1}}
+\makeatother
+
+% ==== Dynamic User Stories ====
+\newcounter{US}[chapter]
+\renewcommand{\theUS}{US\arabic{US}}         % or US\thechapter.\arabic{US} if you want chapter-aware IDs
+
+% Prints bold auto-number and defines a label. Usage: \StoryLabel{usParentAutism}{US1}
+\newcommand{\StoryLabel}[2]{%
+  \refstepcounter{US}%
+  \label{#1}%
+  \textbf{\theUS}%
+}
+
+% Linked reference to a story label. Usage: \StoryReference{usParentAutism}
+\newcommand{\StoryReference}[1]{\hyperref[#1]{\textbf{\ref*{#1}}}}
+
+% ------------------------------
+% Document
+% ------------------------------
+\begin{document}
+
+% ---------- Title page ----------
+\begin{center}
+    {\Huge \textbf{FindIt System Manual}}\\[1em]
+    {\large Version \version\ (\commit)}\\[0.5em]
+    {\small Build Date: \builddate}\\[2em]
+    {\small \copyright\ Stevens Institute of Technology}\\
+    {\small Do Not Distribute}
+\end{center}
+\clearpage
+
+% ---------- Front matter ----------
+\pagenumbering{roman}
+\singlespacing
+\include{prologue}
+
+% ---------- Body ----------
+\setcounter{page}{1}
+\pagenumbering{arabic}
+\pagestyle{fancy}
+
+\fancyhf{} % clear all
+\lhead{Chapter \thechapter}
+\chead{\leftmark}
+\rhead{\thepage}
+\lfoot{FindIt \version}
+\cfoot{\copyright\ Stevens -- \builddate}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% ---------- Chapters ----------
+\singlespacing
+\include{rrcIntroduction}
+\include{rrcTeamDeclaration}
+\include{rrcDevelopmentPlan}
+\include{rrcRequirements}
+\include{rrcUserStories}
+\include{rrcUseCases}
+\include{rrcUserInterfaceDesign}
+\include{rrcLogicalView}
+\include{rrcDevelopmentView}
+\include{rrcProcessView}
+\include{rrcPhysicalView}
+\include{rrcPreliminaryImplementation}
+
+% ---------- Glossary ----------
+\cleardoublepage
+\phantomsection
+\glsaddall
+\printnoidxglossaries
+\label{Chapter::Glossary}
+
+% ---------- Appendices ----------
+\appendix
+\include{rrcWeeklyReports}
+\include{rrcDevNotes}
+
+% ---------- References ----------
+\nocite{*}
+\bibliographystyle{IEEEtran}
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{References}
+\bibliography{bibfile}
+
+% ---------- Index ----------
+\printindex
+
+\end{document}

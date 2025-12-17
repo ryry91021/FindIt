@@ -1,0 +1,15 @@
+\chapter{Development View \\
+\small{\textit{-- Ryan Davis, Roy Tas, and Cory Vitanza}}
+\index{Development View} 
+\index{Chapter!DevelopmentView}
+\label{Chapter::DevelopmentView}}
+
+The package diagram for the FindIt system highlights the different modules in our system. The Wio Tracker 1110 has firmware, uplinking the data it collected into the database. The database provides data to our ML model highlighting abnormalities in location data, and to the React frontend, where the data is processed and presented on the user interface.
+%Package Diagram
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\textwidth]{png/diagrams/FindIt Package Diagram.jpg}
+\caption{\FigureLabel{Package Diagram}: Package diagram for FindIt deployment}
+\label{fig:packageDiagram}
+\end{figure}

@@ -1,0 +1,122 @@
+% rrcGlossary.tex  (entries only)
+
+% ---------- MoSCoW priorities ----------
+\newglossaryentry{must}{
+  name={MustHave},
+  description={This defines the first highest priority requirement. All of the tasks, requirements, or anything that is marked this way are built in the current version.}
+}
+
+\newglossaryentry{should}{
+  name={ShouldHave},
+  description={This defines the second highest priority requirement. The system should implement all of the tasks, requirements, or anything that is marked this way, but if resources are limited, it can be left out of the current version. Build in next version.}
+}
+
+\newglossaryentry{could}{
+  name={CouldHave},
+  description={This defines the third highest priority requirement. The system could implement all of the tasks, requirements, or anything that is marked this way, but if resources are limited, it can be left out of the current and next version. Build in two versions from now.}
+}
+
+\newglossaryentry{would}{
+  name={WouldHave},
+  description={This defines the lowest priority requirement. The system would like to implement all of the tasks, requirements, or anything that is marked this way, but only if resources are available. It can be left out of all future versions.}
+}
+
+% ---------- FindIt project terms ----------
+\newglossaryentry{findit}{
+  name={FindIt System},
+  description={The end-to-end asset tracking solution developed by the team, consisting of the FindIt device, LoRaWAN gateway, and cloud-based data management dashboard.}
+}
+
+\newglossaryentry{lora}{
+  name={LoRa (Long Range)},
+  description={A wireless modulation technique that enables long-range, low-power communication between IoT devices using sub-GHz frequency bands.}
+}
+
+\newglossaryentry{LoRaWAN}{
+  name={LoRaWAN (Long Range Wide Area Network)},
+  description={A protocol built on top of LoRa that defines how end devices communicate with gateways and network servers for secure and scalable data transmission.}
+}
+
+\newglossaryentry{Wio Tracker 1110}{
+  name={Wio Tracker 1110},
+  description={The development board used for prototyping the FindIt device. It integrates Semtech’s LR1110 transceiver, GNSS assistance, and LoRa communication interface.}
+}
+
+\newglossaryentry{lr1110}{
+  name={LR1110},
+  description={A Semtech transceiver that supports LoRa and GNSS assistance, enabling hybrid indoor/outdoor tracking and low-power operation.}
+}
+
+\newglossaryentry{TTS}{
+  name={The Things Stack (TTS)},
+  description={An open-source LoRaWAN network server for device registration, session management, and secure routing of uplink/downlink messages.}
+}
+
+\newglossaryentry{Gateways}{
+  name={Gateway},
+  description={A device that receives LoRaWAN packets from trackers and forwards them to the network server via the internet, bridging local RF to cloud.}
+}
+
+\newglossaryentry{SupaBase}{
+  name={Supabase},
+  description={The backend platform (PostgreSQL + REST/Realtime) used to store and query tracker data and power the FindIt API/dashboard.}
+}
+
+\newglossaryentry{battery}{
+  name={Battery Life Optimization},
+  description={Design focus on minimizing energy usage through duty cycling, GNSS assist, and efficient LoRaWAN classes to target >1 year per device.}
+}
+
+\newglossaryentry{Asset Tracking}{
+  name={Asset Tracking},
+  description={Monitoring the location of objects or people using GNSS (outdoor) and signal-based localization (indoor).}
+}
+
+\newglossaryentry{GPS}{
+  name={GPS (Global Positioning System)},
+  description={Satellite-based navigation providing precise outdoor positioning. Used by the tracker when sky visibility is sufficient.}
+}
+
+\newglossaryentry{indoorpos}{
+  name={Indoor Positioning},
+  description={Location estimation in GPS-denied spaces using RSSI triangulation, Wi-Fi fingerprinting, or Bluetooth beacons.}
+}
+
+\newglossaryentry{RSSI}{
+  name={RSSI (Received Signal Strength Indicator)},
+  description={Measured signal power used for distance/proximity inference and coarse indoor localization.}
+}
+
+\newglossaryentry{emergencycomm}{
+  name={Emergency Communication},
+  description={User-initiated alerts (e.g., panic button or Morse-code sequence) transmitted via LoRaWAN for caregiver notification.}
+}
+
+\newglossaryentry{Uplink}{
+  name={Device Uplink},
+  description={Device transmit data to network server.}
+}
+\newglossaryentry{Downlink}{
+  name={Device Downlink},
+  description={Network server transmits data to device.}
+}
+
+\newglossaryentry{coverage}{
+  name={Gateway Network Coverage},
+  description={Geographic area within which gateways can reliably receive tracker signals, determining communication reach and reliability.}
+}
+
+\newglossaryentry{purchase}{
+  name={One-Time Purchase Model},
+  description={Fixed device cost (e.g., \$50) with optional subscription tiers for extended history, private hosting, or premium features.}
+}
+
+\newglossaryentry{firmware}{
+  name={Firmware},
+  description={Embedded software on the tracker controlling sensing, power management, and LoRaWAN communication.}
+}
+
+\newglossaryentry{ui}{
+  name={User Interface (UI)},
+  description={Mobile/web interface for viewing locations, receiving alerts, and managing settings.}
+}
