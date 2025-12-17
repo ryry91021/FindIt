@@ -9,3 +9,4 @@ documentation/
 diagrams/
 frontend/.expo
 frontend/.env.local
+firmware/finditFirmwareWorkspace/libraries
