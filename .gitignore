@@ -11,3 +11,5 @@ diagrams/
 frontend/.expo
 frontend/.env.local
 firmware/finditFirmwareWorkspace/libraries
+frontend/package-lock.json
+frontend/package.json

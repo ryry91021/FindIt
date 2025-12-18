@@ -46,7 +46,11 @@ function App() {
       {currentPage === 'login' ? (
         <Login
           onSwitchToSignup={() => setCurrentPage('signup')}
-          onLoginSuccess={() => window.location.reload()}
+          onLoginSuccess={async () => {
+            const currentUser = await authService.getCurrentUser()
+            setUser(currentUser)
+          }}
+
         />
       ) : (
         <Signup
