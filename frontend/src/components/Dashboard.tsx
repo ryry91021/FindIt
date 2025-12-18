@@ -49,7 +49,7 @@ export function Dashboard({ userEmail, onLogout }: DashboardProps) {
         return
       }
 
-      // 1️⃣ Fetch boards owned by this user
+      // 1️ Fetch boards owned by this user
       const { data: devices, error: deviceError } = await supabase
         .from('devices')
         .select('id, display_name')
@@ -66,7 +66,7 @@ export function Dashboard({ userEmail, onLogout }: DashboardProps) {
 
       const deviceIds = devices.map((d) => d.id)
 
-      // 2️⃣ Fetch latest location logs for those devices
+      // Fetch latest location logs for those devices
       const { data: logs, error: logError } = await supabase
         .from('location_logs')
         .select('device_id, latitude, longitude, accuracy_meters, recorded_at')
