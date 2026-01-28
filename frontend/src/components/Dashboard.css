@@ -8,10 +8,15 @@
 
 /* Leaflet map */
 .map-container {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
 }
-
+.map-container {
+  background: #ddd;
+}
 /* Account menu (top-right overlay) */
 .account-menu {
   position: absolute;
@@ -22,7 +27,7 @@
 
 /* Account button */
 .account-button {
-  background: rgb(5, 2, 2);
+  background: rgb(255, 255, 255);
   border: none;
   padding: 10px 14px;
   border-radius: 6px;
@@ -68,7 +73,7 @@
   position: absolute;
   bottom: 16px;
   right: 16px;
-  background: rgb(0, 0, 0);
+  background: rgb(255, 255, 255);
   padding: 12px;
   border-radius: 6px;
   width: 200px;
