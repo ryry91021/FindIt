@@ -44,7 +44,7 @@ export class FIUMapView {
                 .bindPopup(
                     `
           <strong>${board?.display_name ?? 'Unknown Board'}</strong><br/>
-          Accuracy: ${loc.accuracy_meters ?? 'N/A'} m<br/>
+          <!--Accuracy: ${loc.accuracy_meters ?? 'N/A'} m<br/>-->
           Updated: ${new Date(loc.recorded_at).toLocaleString()}
         `
                 )
