@@ -4,13 +4,18 @@ import { fetchBoardsForCurrentUser } from '../services/deviceRepo'
 import { fetchLatestLocationsForDevices } from '../services/locationRepo'
 
 export class FIUBoardController {
-    async loadBoardsAndLatestLocations(): Promise<{
+    async loadBoardsAndLatestLocations(userId?: string): Promise<{
         boards: FIUBoardEntity[]
         locations: FIULocationRecordEntity[]
     }> {
-        const boards = await fetchBoardsForCurrentUser()
-        const deviceIds = boards.map((b) => b.id)
-        const locations = await fetchLatestLocationsForDevices(deviceIds)
-        return { boards, locations }
+        try {
+            const boards = await fetchBoardsForCurrentUser(userId)
+            const deviceIds = boards.map((b) => b.id)
+            const locations = await fetchLatestLocationsForDevices(deviceIds)
+            return { boards, locations }
+        } catch (err) {
+            console.error('FIUBoardController.loadBoardsAndLatestLocations failed', err)
+            throw new Error('Unable to load dashboard data. Please try again.')
+        }
     }
 }
