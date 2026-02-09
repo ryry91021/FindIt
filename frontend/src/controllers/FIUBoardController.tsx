@@ -3,7 +3,9 @@ import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntit
 import { fetchBoardsForCurrentUser } from '../services/deviceRepo'
 import { fetchLatestLocationsForDevices } from '../services/locationRepo'
 
+/** Loads board and location data for the dashboard/map. */
 export class FIUBoardController {
+    /** Loads boards for a user and fetches their latest locations. */
     async loadBoardsAndLatestLocations(userId?: string): Promise<{
         boards: FIUBoardEntity[]
         locations: FIULocationRecordEntity[]

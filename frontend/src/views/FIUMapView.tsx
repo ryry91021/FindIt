@@ -3,15 +3,20 @@ import 'leaflet/dist/leaflet.css'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 
+/** Leaflet-based map renderer for board locations. */
 export class FIUMapView {
     private map: L.Map | null = null
     private markers: L.Marker[] = []
 
+    /** Initializes the map once for the given container. */
     init(container: HTMLDivElement) {
         if (this.map) return
 
         // Fix default marker icons in Vite
-        delete (L.Icon.Default.prototype as any)._getIconUrl
+        const iconDefaultProto = L.Icon.Default.prototype as unknown as {
+            _getIconUrl?: unknown
+        }
+        delete iconDefaultProto._getIconUrl
         L.Icon.Default.mergeOptions({
             iconRetinaUrl:
                 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -28,6 +33,7 @@ export class FIUMapView {
         }).addTo(this.map)
     }
 
+    /** Updates markers based on the latest board/location data. */
     render(boards: FIUBoardEntity[], locations: FIULocationRecordEntity[]) {
         if (!this.map) return
 

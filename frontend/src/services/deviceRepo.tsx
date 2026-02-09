@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 
+/** Fetches boards/devices visible to the current user (owned or shared). */
 export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoardEntity[]> {
     let resolvedUserId = userId
 

@@ -6,6 +6,7 @@ interface DashboardProps {
   onLogout: () => void
 }
 
+/** Top-level dashboard component that delegates to FIUBoardView. */
 export function Dashboard({ userEmail, userId, onLogout }: DashboardProps) {
   return <FIUBoardView userEmail={userEmail} userId={userId} onLogout={onLogout} />
 }

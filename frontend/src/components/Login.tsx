@@ -7,12 +7,14 @@ interface LoginProps {
   onLoginSuccess: () => void
 }
 
+/** Login form component (email/password) backed by Supabase auth. */
 export function Login({ onSwitchToSignup, onLoginSuccess }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  /** Handles form submit and triggers sign-in. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')

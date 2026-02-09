@@ -7,4 +7,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
+/** Shared Supabase client for all frontend data/auth calls. */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

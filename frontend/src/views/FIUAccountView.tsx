@@ -9,13 +9,16 @@ type State = {
     open: boolean
 }
 
+/** Small account dropdown widget (email + sign out). */
 export class FIUAccountView extends Component<Props, State> {
     state: State = { open: false }
 
+    /** Toggles the dropdown open/closed. */
     private toggleOpen = () => {
         this.setState((prev) => ({ open: !prev.open }))
     }
 
+    /** Renders the account dropdown UI. */
     render() {
         const { userEmail, onSignOut } = this.props
         const { open } = this.state

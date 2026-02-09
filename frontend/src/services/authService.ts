@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient'
 
+/** Thin wrapper around Supabase auth calls used by UI and controllers. */
 export const authService = {
+  /** Creates a new user account with email/password. */
   async signUp(email: string, password: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -10,6 +12,7 @@ export const authService = {
     return data
   },
 
+  /** Signs a user in with email/password. */
   async signIn(email: string, password: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -19,11 +22,13 @@ export const authService = {
     return data
   },
 
+  /** Signs the current user out. */
   async signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   },
 
+  /** Returns the currently authenticated user (or null). */
   async getCurrentUser() {
     const {
       data: { user },
@@ -33,6 +38,7 @@ export const authService = {
     return user
   },
 
+  /** Sends a password reset email. */
   async resetPassword(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) throw error

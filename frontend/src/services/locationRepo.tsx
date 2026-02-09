@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 
+/** Fetches the most recent location record for each requested device. */
 export async function fetchLatestLocationsForDevices(
     deviceIds: string[]
 ): Promise<FIULocationRecordEntity[]> {
@@ -15,11 +16,11 @@ export async function fetchLatestLocationsForDevices(
     if (error) throw error
 
     const latestByDevice = new Map<string, FIULocationRecordEntity>()
-        ; (data ?? []).forEach((row: any) => {
-            if (!latestByDevice.has(row.device_id)) {
-                latestByDevice.set(row.device_id, row as FIULocationRecordEntity)
-            }
-        })
+    ;((data ?? []) as FIULocationRecordEntity[]).forEach((row) => {
+        if (!latestByDevice.has(row.device_id)) {
+            latestByDevice.set(row.device_id, row)
+        }
+    })
 
     return Array.from(latestByDevice.values())
 }

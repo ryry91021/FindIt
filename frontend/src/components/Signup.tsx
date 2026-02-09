@@ -7,6 +7,7 @@ interface SignupProps {
   onSignupSuccess: () => void
 }
 
+/** Signup form component (email/password) backed by Supabase auth. */
 export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +16,7 @@ export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
+  /** Handles form submit and triggers account creation. */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')

@@ -19,6 +19,7 @@ type State = {
     error: string | null
 }
 
+/** Dashboard view that renders the map plus the boards legend/menu. */
 export class FIUBoardView extends Component<Props, State> {
     state: State = {
         menuOpen: false,
@@ -32,6 +33,7 @@ export class FIUBoardView extends Component<Props, State> {
     private mapView = new FIUMapView()
     private cancelled = false
 
+    /** Initializes the map and triggers the initial load. */
     componentDidMount() {
         const container = this.mapRef.current
         if (container) {
@@ -41,6 +43,7 @@ export class FIUBoardView extends Component<Props, State> {
         void this.load()
     }
 
+    /** Reloads on user change; re-renders markers when data changes. */
     componentDidUpdate(prevProps: Props, prevState: State) {
         if (this.props.userId !== prevProps.userId && this.props.userId) {
             void this.load()
@@ -54,10 +57,12 @@ export class FIUBoardView extends Component<Props, State> {
         }
     }
 
+    /** Prevents state updates after unmount. */
     componentWillUnmount() {
         this.cancelled = true
     }
 
+    /** Loads boards and latest locations into component state. */
     private async load() {
         try {
             this.setState({ error: null })
@@ -75,15 +80,18 @@ export class FIUBoardView extends Component<Props, State> {
         }
     }
 
+    /** Toggles the account dropdown. */
     private toggleMenuOpen = () => {
         this.setState((prev) => ({ menuOpen: !prev.menuOpen }))
     }
 
+    /** Signs out and notifies the parent. */
     private handleLogout = async () => {
         await authService.signOut()
         this.props.onLogout()
     }
 
+    /** Renders the map and board status list. */
     render() {
         const { userEmail } = this.props
         const { menuOpen, boards, locations, error } = this.state
