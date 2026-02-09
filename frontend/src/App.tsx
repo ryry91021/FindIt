@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { Dashboard } from './components/Dashboard'
-import { authService } from './services/authService'
+import { supabase } from './services/supabaseClient'
 import './App.css'
 
 type AuthPage = 'login' | 'signup'
@@ -13,19 +13,33 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
+    let mounted = true
+
+    const init = async () => {
       try {
-        const currentUser = await authService.getCurrentUser()
-        setUser(currentUser)
-      } catch (err) {
-        console.error('Error checking auth status:', err)
+        const { data, error } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (error) {
+          console.error('Error reading session:', error)
+          setUser(null)
+        } else {
+          setUser(data.session?.user ?? null)
+        }
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
-    checkUser()
+    void init()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => {
+      mounted = false
+      authListener.subscription.unsubscribe()
+    }
   }, [])
 
   if (loading) {
@@ -36,6 +50,7 @@ function App() {
     return (
       <Dashboard
         userEmail={user.email}
+        userId={user.id}
         onLogout={() => setUser(null)}
       />
     )
@@ -47,8 +62,8 @@ function App() {
         <Login
           onSwitchToSignup={() => setCurrentPage('signup')}
           onLoginSuccess={async () => {
-            const currentUser = await authService.getCurrentUser()
-            setUser(currentUser)
+            const { data } = await supabase.auth.getSession()
+            setUser(data.session?.user ?? null)
           }}
 
         />
