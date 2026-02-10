@@ -1,5 +1,31 @@
 # React + TypeScript + Vite
 
+## Tests
+
+- Unit/component tests: `npm test`
+- Live Supabase integration tests (optional): `npm run test:integration`
+- Run everything (lint + typecheck + unit tests + optional integration): `npm run ci`
+
+## Local pre-push hook (optional)
+
+To block `git push` when checks fail:
+
+- Install the versioned git hooks: `npm run hooks:install`
+- After that, every push runs `npm run ci` from `frontend/`
+
+Note: GitHub Actions does not read `.env.local`. To run live integration tests in CI, set repository secrets and the workflow will pass them as environment variables.
+
+Integration tests are skipped unless these env vars are set:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `SUPABASE_TEST_EMAIL`
+- `SUPABASE_TEST_PASSWORD`
+
+Optional (enables location query integration coverage):
+
+- `SUPABASE_TEST_DEVICE_IDS` (comma-separated device IDs)
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

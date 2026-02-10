@@ -3,13 +3,14 @@ import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { Dashboard } from './components/Dashboard'
 import { supabase } from './services/supabaseClient'
+import type { User } from '@supabase/supabase-js'
 import './App.css'
 
 type AuthPage = 'login' | 'signup'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<AuthPage>('login')
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

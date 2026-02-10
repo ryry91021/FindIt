@@ -1,12 +1,20 @@
 import { supabase } from './supabaseClient'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 
+type DeviceMemberRow = {
+    device_id: string | null
+}
+
 /** Fetches boards/devices visible to the current user (owned or shared). */
-export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoardEntity[]> {
+export async function fetchBoardsForCurrentUser(
+    userId?: string,
+    client: SupabaseClient = supabase
+): Promise<FIUBoardEntity[]> {
     let resolvedUserId = userId
 
     if (!resolvedUserId) {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+        const { data: sessionData, error: sessionErr } = await client.auth.getSession()
         if (sessionErr) {
             console.error('fetchBoardsForCurrentUser: auth.getSession failed', sessionErr)
             throw new Error('Unable to load boards.')
@@ -17,7 +25,7 @@ export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoa
     if (!resolvedUserId) return []
 
     // Support both ownership and shared access via device_members
-    const { data: memberRows, error: memberErr } = await supabase
+    const { data: memberRows, error: memberErr } = await client
         .from('device_members')
         .select('device_id')
         .eq('user_id', resolvedUserId)
@@ -27,11 +35,11 @@ export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoa
         throw new Error('Unable to load boards.')
     }
 
-    const memberDeviceIds = (memberRows ?? [])
-        .map((row: any) => row.device_id as string)
-        .filter(Boolean)
+    const memberDeviceIds = ((memberRows ?? []) as DeviceMemberRow[])
+        .map((row) => row.device_id)
+        .filter((id): id is string => Boolean(id))
 
-    const { data: ownedDevices, error: ownedErr } = await supabase
+    const { data: ownedDevices, error: ownedErr } = await client
         .from('devices')
         .select('id, display_name')
         .eq('owner_id', resolvedUserId)
@@ -43,7 +51,7 @@ export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoa
 
     let sharedDevices: FIUBoardEntity[] = []
     if (memberDeviceIds.length > 0) {
-        const { data: sharedData, error: sharedErr } = await supabase
+        const { data: sharedData, error: sharedErr } = await client
             .from('devices')
             .select('id, display_name')
             .in('id', memberDeviceIds)
@@ -57,8 +65,8 @@ export async function fetchBoardsForCurrentUser(userId?: string): Promise<FIUBoa
     }
 
     const byId = new Map<string, FIUBoardEntity>()
-    ;(ownedDevices ?? []).forEach((d: any) => {
-        if (d?.id) byId.set(d.id, d as FIUBoardEntity)
+    ;((ownedDevices ?? []) as FIUBoardEntity[]).forEach((device) => {
+        if (device?.id) byId.set(device.id, device)
     })
     sharedDevices.forEach((d) => {
         if (d?.id) byId.set(d.id, d)

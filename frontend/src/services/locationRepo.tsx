@@ -1,13 +1,15 @@
 import { supabase } from './supabaseClient'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 
 /** Fetches the most recent location record for each requested device. */
 export async function fetchLatestLocationsForDevices(
-    deviceIds: string[]
+    deviceIds: string[],
+    client: SupabaseClient = supabase
 ): Promise<FIULocationRecordEntity[]> {
     if (!deviceIds || deviceIds.length === 0) return []
 
-    const { data, error } = await supabase
+    const { data, error } = await client
         .from('location_logs')
         .select('device_id, latitude, longitude, accuracy_meters, recorded_at')
         .in('device_id', deviceIds)

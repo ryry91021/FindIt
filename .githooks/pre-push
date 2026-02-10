@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+# Block pushes if frontend CI checks fail.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+printf "%s\n" "[pre-push] Running frontend CI (npm run ci)"
+cd "$REPO_ROOT/frontend"
+
+npm run ci
