@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-import { fetchBoardsForCurrentUser } from '../../src/services/deviceRepo'
+import { FIUBoardModel } from '../../src/models/FIUBoardModel'
 import { FIULocationRecordModel } from '../../src/models/FIULocationRecordModel'
 
 const TEST_TIMEOUT_MS = 20_000
@@ -93,9 +93,9 @@ suite('Supabase integration (live)', () => {
   )
 
   it(
-    'fetchBoardsForCurrentUser works against a real Supabase project',
+    'FIUBoardModel.fetchBoardsForUser works against a real Supabase project',
     async () => {
-      const boards = await fetchBoardsForCurrentUser(userId, client)
+      const boards = await FIUBoardModel.fetchBoardsForUser(userId, client)
       expect(Array.isArray(boards)).toBe(true)
 
       for (const board of boards) {

@@ -1,6 +1,7 @@
 import { FIUModel } from './FIUModel'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '../services/supabaseClient'
 import { FIULocationRecordModel } from './FIULocationRecordModel'
 
@@ -17,22 +18,28 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
     }
 
     /** Fetches all boards the user owns or has access to. */
-    static async fetchBoardsForUser(userId?: string): Promise<FIUBoardEntity[]> {
-        // Ensure Supabase auth state is hydrated before any RLS-protected queries.
-        // Without this, queries may silently return 0 rows in some cases.
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-        if (sessionErr) {
-            console.error('FIUBoardModel.fetchBoardsForUser: auth.getSession failed', sessionErr)
-            throw new Error('Unable to load boards.')
-        }
-
+    static async fetchBoardsForUser(
+        userId?: string,
+        client: SupabaseClient = supabase
+    ): Promise<FIUBoardEntity[]> {
         let resolvedUserId = userId
 
-        if (!resolvedUserId) resolvedUserId = sessionData.session?.user?.id
+        // Ensure Supabase auth state is hydrated before any RLS-protected queries.
+        // Without this, queries may silently return 0 rows in some cases.
+        // For external clients (tests), only hydrate when we need the user id.
+        if (client === supabase || !resolvedUserId) {
+            const { data: sessionData, error: sessionErr } = await client.auth.getSession()
+            if (sessionErr) {
+                console.error('FIUBoardModel.fetchBoardsForUser: auth.getSession failed', sessionErr)
+                throw new Error('Unable to load boards.')
+            }
+
+            if (!resolvedUserId) resolvedUserId = sessionData.session?.user?.id
+        }
 
         if (!resolvedUserId) return []
 
-        const { data: memberRows, error: memberErr } = await supabase
+        const { data: memberRows, error: memberErr } = await client
             .from('device_members')
             .select('device_id')
             .eq('user_id', resolvedUserId)
@@ -46,7 +53,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
             .map((row) => (row as { device_id?: string | null }).device_id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0)
 
-        const { data: ownedDevices, error: ownedErr } = await supabase
+        const { data: ownedDevices, error: ownedErr } = await client
             .from('devices')
             .select('id, display_name')
             .eq('owner_id', resolvedUserId)
@@ -58,7 +65,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
 
         let sharedDevices: FIUBoardEntity[] = []
         if (memberDeviceIds.length > 0) {
-            const { data: sharedData, error: sharedErr } = await supabase
+            const { data: sharedData, error: sharedErr } = await client
                 .from('devices')
                 .select('id, display_name')
                 .in('id', memberDeviceIds)
@@ -84,13 +91,16 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
     }
 
     /** Convenience method for dashboard data loading. */
-    static async loadBoardsAndLatestLocations(userId?: string): Promise<{
+    static async loadBoardsAndLatestLocations(
+        userId?: string,
+        client: SupabaseClient = supabase
+    ): Promise<{
         boards: FIUBoardEntity[]
         locations: FIULocationRecordEntity[]
     }> {
-        const boards = await FIUBoardModel.fetchBoardsForUser(userId)
+        const boards = await FIUBoardModel.fetchBoardsForUser(userId, client)
         const deviceIds = boards.map((b) => b.id)
-        const locations = await FIULocationRecordModel.fetchLatestLocationsForDevices(deviceIds)
+        const locations = await FIULocationRecordModel.fetchLatestLocationsForDevices(deviceIds, client)
         return { boards, locations }
     }
 }
