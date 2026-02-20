@@ -13,10 +13,7 @@ export class FIUMapView {
         if (this.map) return
 
         // Fix default marker icons in Vite
-        const iconDefaultProto = L.Icon.Default.prototype as unknown as {
-            _getIconUrl?: unknown
-        }
-        delete iconDefaultProto._getIconUrl
+        delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
         L.Icon.Default.mergeOptions({
             iconRetinaUrl:
                 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
