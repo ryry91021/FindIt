@@ -1,113 +1,51 @@
 import { Component, createRef } from 'react'
-import { authService } from '../services/authService'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
-import { FIUBoardController } from '../controllers/FIUBoardController'
 import { FIUMapView } from './FIUMapView'
+import { FIUAccountView } from './FIUAccountView'
 import '../components/Dashboard.css'
 
 interface Props {
-    userEmail: string | undefined
-    userId: string | undefined
-    onLogout: () => void
-}
-
-type State = {
-    menuOpen: boolean
+    userEmail?: string
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
     error: string | null
+    onSignOut: () => void
 }
 
-export class FIUBoardView extends Component<Props, State> {
-    state: State = {
-        menuOpen: false,
-        boards: [],
-        locations: [],
-        error: null,
-    }
-
-    private mapRef = createRef<HTMLDivElement>()
-    private controller = new FIUBoardController()
+/**
+ * Pure presentation of the dashboard.
+ * Renders based on props (no DB access / request flow).
+ */
+export class FIUBoardView extends Component<Props> {
+    private mapContainerRef = createRef<HTMLDivElement>()
     private mapView = new FIUMapView()
-    private cancelled = false
 
-    componentDidMount() {
-        const container = this.mapRef.current
+    componentDidMount(): void {
+        const container = this.mapContainerRef.current
         if (container) {
             this.mapView.init(container)
         }
 
-        void this.load()
+        this.mapView.render(this.props.boards, this.props.locations)
     }
 
-    componentDidUpdate(prevProps: Props, prevState: State) {
-        if (this.props.userId !== prevProps.userId && this.props.userId) {
-            void this.load()
+    componentDidUpdate(prevProps: Props): void {
+        if (prevProps.boards !== this.props.boards || prevProps.locations !== this.props.locations) {
+            this.mapView.render(this.props.boards, this.props.locations)
         }
-
-        if (
-            prevState.boards !== this.state.boards ||
-            prevState.locations !== this.state.locations
-        ) {
-            this.mapView.render(this.state.boards, this.state.locations)
-        }
-    }
-
-    componentWillUnmount() {
-        this.cancelled = true
-    }
-
-    private async load() {
-        try {
-            this.setState({ error: null })
-            const res = await this.controller.loadBoardsAndLatestLocations(this.props.userId)
-            if (this.cancelled) return
-            this.setState({ boards: res.boards, locations: res.locations })
-        } catch (e: unknown) {
-            if (this.cancelled) return
-            console.error('Dashboard load error:', e)
-            this.setState({
-                error: 'Something went wrong while loading your boards. Please try again.',
-                boards: [],
-                locations: [],
-            })
-        }
-    }
-
-    private toggleMenuOpen = () => {
-        this.setState((prev) => ({ menuOpen: !prev.menuOpen }))
-    }
-
-    private handleLogout = async () => {
-        await authService.signOut()
-        this.props.onLogout()
     }
 
     render() {
-        const { userEmail } = this.props
-        const { menuOpen, boards, locations, error } = this.state
+        const { userEmail, boards, locations, error, onSignOut } = this.props
 
         return (
             <div className="dashboard-root">
                 {/* Map */}
-                <div ref={this.mapRef} className="map-container" />
+                <div ref={this.mapContainerRef} className="map-container" />
 
                 {/* Account menu */}
-                <div className="account-menu">
-                    <button className="account-button" onClick={this.toggleMenuOpen}>
-                        Account ⌄
-                    </button>
-
-                    {menuOpen && (
-                        <div className="account-dropdown">
-                            <p className="account-email">{userEmail}</p>
-                            <button className="signout-button" onClick={this.handleLogout}>
-                                Sign Out
-                            </button>
-                        </div>
-                    )}
-                </div>
+                <FIUAccountView userEmail={userEmail} onSignOut={onSignOut} />
 
                 {/* Error box (VISIBLE) */}
                 {error && (
@@ -134,11 +72,7 @@ export class FIUBoardView extends Component<Props, State> {
                 {/* Boards legend */}
                 <div className="boards-legend">
                     <h4>Boards</h4>
-                    {boards.length === 0 && !error && (
-                        <p>
-                            No boards found.
-                        </p>
-                    )}
+                    {boards.length === 0 && !error && <p>No boards found.</p>}
                     {boards.map((board) => {
                         const hasLocation = locations.some((l) => l.device_id === board.id)
                         return (

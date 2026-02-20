@@ -5,19 +5,33 @@ import { Dashboard } from './components/Dashboard'
 import { supabase } from './services/supabaseClient'
 import './App.css'
 
+type SupabaseUser = {
+  id: string
+  email?: string
+}
+
 type AuthPage = 'login' | 'signup'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<AuthPage>('login')
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let mounted = true
 
+    const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('Timed out while initializing auth session')), ms)
+        ),
+      ])
+    }
+
     const init = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession()
+        const { data, error } = await withTimeout(supabase.auth.getSession(), 4000)
         if (!mounted) return
         if (error) {
           console.error('Error reading session:', error)
@@ -25,6 +39,10 @@ function App() {
         } else {
           setUser(data.session?.user ?? null)
         }
+      } catch (e) {
+        if (!mounted) return
+        console.error('Auth init failed:', e)
+        setUser(null)
       } finally {
         if (mounted) setLoading(false)
       }
