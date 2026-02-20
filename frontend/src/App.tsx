@@ -3,7 +3,6 @@ import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { Dashboard } from './components/Dashboard'
 import { supabase } from './services/supabaseClient'
-import type { User } from '@supabase/supabase-js'
 import './App.css'
 
 type SupabaseUser = {
