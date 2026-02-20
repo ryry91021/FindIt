@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 import { fetchBoardsForCurrentUser } from '../../src/services/deviceRepo'
-import { fetchLatestLocationsForDevices } from '../../src/services/locationRepo'
+import { FIULocationRecordModel } from '../../src/models/FIULocationRecordModel'
 
 const TEST_TIMEOUT_MS = 20_000
 
@@ -108,7 +108,10 @@ suite('Supabase integration (live)', () => {
   ;(deviceIdsFromEnv.length > 0 ? it : it.skip)(
     'fetchLatestLocationsForDevices works against a real Supabase project',
     async () => {
-      const locations = await fetchLatestLocationsForDevices(deviceIdsFromEnv, client)
+      const locations = await FIULocationRecordModel.fetchLatestLocationsForDevices(
+        deviceIdsFromEnv,
+        client
+      )
       expect(Array.isArray(locations)).toBe(true)
 
       for (const row of locations) {

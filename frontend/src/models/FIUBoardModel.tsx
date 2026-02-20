@@ -2,6 +2,7 @@ import { FIUModel } from './FIUModel'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { supabase } from '../services/supabaseClient'
+import { FIULocationRecordModel } from './FIULocationRecordModel'
 
 /** UI-friendly model for a board/device entity. */
 export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
@@ -82,34 +83,6 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         return Array.from(byId.values())
     }
 
-    /** Fetches only the most-recent location record per device. */
-    static async fetchLatestLocationsForDevices(
-        deviceIds: string[]
-    ): Promise<FIULocationRecordEntity[]> {
-        if (!deviceIds || deviceIds.length === 0) return []
-
-        const { data, error } = await supabase
-            .from('location_logs')
-            .select('device_id, latitude, longitude, accuracy_meters, recorded_at')
-            .in('device_id', deviceIds)
-            .order('recorded_at', { ascending: false })
-
-        if (error) {
-            console.error('FIUBoardModel.fetchLatestLocationsForDevices: query failed', error)
-            throw new Error('Unable to load locations.')
-        }
-
-        const latestByDevice = new Map<string, FIULocationRecordEntity>()
-        ;(data ?? []).forEach((row) => {
-            const loc = row as FIULocationRecordEntity
-            if (loc?.device_id && !latestByDevice.has(loc.device_id)) {
-                latestByDevice.set(loc.device_id, loc)
-            }
-        })
-
-        return Array.from(latestByDevice.values())
-    }
-
     /** Convenience method for dashboard data loading. */
     static async loadBoardsAndLatestLocations(userId?: string): Promise<{
         boards: FIUBoardEntity[]
@@ -117,7 +90,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
     }> {
         const boards = await FIUBoardModel.fetchBoardsForUser(userId)
         const deviceIds = boards.map((b) => b.id)
-        const locations = await FIUBoardModel.fetchLatestLocationsForDevices(deviceIds)
+        const locations = await FIULocationRecordModel.fetchLatestLocationsForDevices(deviceIds)
         return { boards, locations }
     }
 }

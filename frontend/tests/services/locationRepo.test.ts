@@ -42,8 +42,8 @@ describe('fetchLatestLocationsForDevices', () => {
       error: null,
     })
 
-    const { fetchLatestLocationsForDevices } = await import('../../src/services/locationRepo')
-    const res = await fetchLatestLocationsForDevices(['d1', 'd2'])
+    const { FIULocationRecordModel } = await import('../../src/models/FIULocationRecordModel')
+    const res = await FIULocationRecordModel.fetchLatestLocationsForDevices(['d1', 'd2'])
 
     expect(res).toHaveLength(2)
     expect(res.find((r) => r.device_id === 'd1')?.latitude).toBe(1)
@@ -51,7 +51,7 @@ describe('fetchLatestLocationsForDevices', () => {
   })
 
   it('returns empty array when no deviceIds', async () => {
-    const { fetchLatestLocationsForDevices } = await import('../../src/services/locationRepo')
-    expect(await fetchLatestLocationsForDevices([])).toEqual([])
+    const { FIULocationRecordModel } = await import('../../src/models/FIULocationRecordModel')
+    expect(await FIULocationRecordModel.fetchLatestLocationsForDevices([])).toEqual([])
   })
 })
