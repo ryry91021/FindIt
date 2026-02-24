@@ -6,12 +6,10 @@ frontend/.DS_Store
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
-documentation/
-diagrams/
 frontend/.expo
 frontend/.env.local
 firmware/finditFirmwareWorkspace/libraries
-diagrams
+
 frontend/.env.local
 # Logs
 logs
@@ -41,5 +39,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-diagrams
+
 
