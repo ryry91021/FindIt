@@ -1,8 +1,8 @@
 /*
     Responsibilities:
-        - Provides generic wrapper for entities​
+        - Provides generic wrapper for entities
 
-         - Provides getter for entities​
+            - Provides getter for entities
             - getEntity()
 */
 

@@ -1,12 +1,12 @@
 /*
     Responsibilities:
-    - Creates boards legend​
+    - Creates boards legend
 
     - Provides status of the
-      boards​
+            boards
 
     - Handle data clearing on
-      sign-out​
+            sign-out
 */
 
 import { Component, createRef } from 'react'

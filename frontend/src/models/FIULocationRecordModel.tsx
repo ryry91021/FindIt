@@ -1,12 +1,12 @@
 /*
     Responsibilities:
     - UI accessors for location
-      records:​
-        - deviceID​
-        - Lat, lon​
-        - Timestamp label​
+            records:
+                - deviceID
+                - Lat, lon
+                - Timestamp label
       Retrieves location data from
-    - database for user’s boards​
+        - database for user’s boards
 */
 
 import type { SupabaseClient } from '@supabase/supabase-js'

@@ -1,6 +1,6 @@
 /*
     Responsibilities:
-    - Provides interface for boards’ data structure from the database​
+    - Provides interface for boards’ data structure from the database
 */
 
 export interface FIUBoardEntity {
