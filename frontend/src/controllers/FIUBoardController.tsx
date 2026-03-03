@@ -1,9 +1,23 @@
+/*
+    Responsibilities:
+    - Loads latest boards and
+      their respective locations​
+
+    - Handles cancelled
+      requests when loading​
+
+    - Provide boards & location
+      for the map​
+*/
+
 import { Component } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { authService } from '../services/authService'
 import { FIUBoardModel } from '../models/FIUBoardModel'
 import { FIUBoardView } from '../views/FIUBoardView'
+
+
 
 interface Props {
     userEmail: string | undefined

@@ -12,6 +12,14 @@
 
 // ------------------------------
 // UML: FIFSensor (abstract)
+/*
+Responsibilities:
+- Defines datatypes for sampling.​
+
+- Provides abstract read() method​
+
+- Provides abstract toPayload() method for data formatting​
+*/
 // ------------------------------
 class FIFSensor {
 public:
@@ -26,7 +34,16 @@ public:
 
 // ------------------------------
 // UML: FIFAccelerometer
-// Fresh each cycle
+/*
+Responsibilities:
+- Store/maintain last sampled XYZ values (for debug and/or higher-level formatting) per read.​
+
+- Send XYZ accelerometer data using toPayload()​
+
+​
+
+​
+*/
 // ------------------------------
 class FIFAccelerometer : public FIFSensor {
 public:
@@ -47,8 +64,10 @@ private:
 
 // ------------------------------
 // UML: FIFBatteryMonitoring
-// Prime once -> stale afterwards
-// (Replace with the correct Tracker_Peripheral battery method if available in your SDK)
+/*
+Responsibilities:
+- Provide battery status readings (level/voltage) for payload.​
+*/
 // ------------------------------
 class FIFBatteryMonitoring : public FIFSensor {
 public:
@@ -75,8 +94,19 @@ private:
 
 // ------------------------------
 // (Optional) UML: FIFGPSData
-// GNSS read/queue is done via WM1110_Geolocation flow.
-// This class is mainly for structure + future extension.
+/*
+Responsibilities:
+- Represent the GNSS
+data/sensing concept in
+the sensor hierarchy.​
+
+- GNSS acquisition is
+handled by the board’s
+tracking state machine,
+which queues results
+separately
+(WM1110_Geolocation).​
+*/
 // ------------------------------
 class FIFGPSData : public FIFSensor {
 public:
@@ -93,6 +123,20 @@ private:
 
 // ------------------------------
 // UML: FIFDevBoard
+/*
+Responsibilities:
+- Initialize sensors for scanning ​
+
+- Update Status and last uplink time​
+
+Control sensor sampling policy:​
+  - prime “stale” sensors once​
+  - refresh accelerometer every collect cycle​
+
+- Format Uplink Payload​
+
+- Queue LoRaWAN uplink ​
+*/
 // ------------------------------
 class FIFDevBoard {
 public:

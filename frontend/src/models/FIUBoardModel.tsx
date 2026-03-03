@@ -1,3 +1,9 @@
+/*
+    Responsibilities:
+    - Fetches board for active
+      user from database​
+*/
+
 import { FIUModel } from './FIUModel'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'

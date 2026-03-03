@@ -1,3 +1,13 @@
+/*
+    Responsibilities:
+    - Display leaflet map on
+      frontend​
+
+    - Displays board and
+      location data using
+      markers​
+*/
+
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
