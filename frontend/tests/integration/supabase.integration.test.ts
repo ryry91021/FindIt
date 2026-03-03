@@ -93,7 +93,7 @@ suite('Supabase integration (live)', () => {
   )
 
   it(
-    'FIUBoardModel.fetchBoardsForUser works against a real Supabase project',
+    'FIUBoardModel.fetchBoardsForUser connects to project database',
     async () => {
       const boards = await FIUBoardModel.fetchBoardsForUser(userId, client)
       expect(Array.isArray(boards)).toBe(true)
@@ -106,7 +106,7 @@ suite('Supabase integration (live)', () => {
   )
 
   ;(deviceIdsFromEnv.length > 0 ? it : it.skip)(
-    'fetchLatestLocationsForDevices works against a real Supabase project',
+    'fetchLatestLocationsForDevices connects to project database',
     async () => {
       const locations = await FIULocationRecordModel.fetchLatestLocationsForDevices(
         deviceIdsFromEnv,
