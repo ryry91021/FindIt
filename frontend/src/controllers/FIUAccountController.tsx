@@ -1,3 +1,8 @@
+/*
+    Responsibilities:
+
+*/
+
 import { authService } from '../services/authService'
 import { supabase } from '../services/supabaseClient'
 

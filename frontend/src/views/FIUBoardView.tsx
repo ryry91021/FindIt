@@ -1,3 +1,14 @@
+/*
+    Responsibilities:
+    - Creates boards legend​
+
+    - Provides status of the
+      boards​
+
+    - Handle data clearing on
+      sign-out​
+*/
+
 import { Component, createRef } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'

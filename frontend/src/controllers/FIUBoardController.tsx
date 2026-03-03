@@ -1,13 +1,13 @@
 /*
     Responsibilities:
     - Loads latest boards and
-      their respective locations​
+            their respective locations
 
     - Handles cancelled
-      requests when loading​
+            requests when loading
 
     - Provide boards & location
-      for the map​
+            for the map
 */
 
 import { Component } from 'react'

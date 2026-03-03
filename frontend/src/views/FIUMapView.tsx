@@ -1,11 +1,11 @@
 /*
     Responsibilities:
     - Display leaflet map on
-      frontend​
+            frontend
 
     - Displays board and
       location data using
-      markers​
+            markers
 */
 
 import L from 'leaflet'

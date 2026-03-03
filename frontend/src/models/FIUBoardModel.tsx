@@ -1,7 +1,7 @@
 /*
     Responsibilities:
     - Fetches board for active
-      user from database​
+    user from database
 */
 
 import { FIUModel } from './FIUModel'
