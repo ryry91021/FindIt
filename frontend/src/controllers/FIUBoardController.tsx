@@ -57,6 +57,13 @@ export class FIUBoardController extends Component<Props, State> {
             return await FIUBoardModel.loadBoardsAndLatestLocations(userId)
         } catch (err) {
             console.error('FIUBoardController.loadBoardsAndLatestLocations failed', err)
+            // In development, bubble up the real error to make RLS/schema issues debuggable.
+            if (import.meta.env.MODE === 'development') {
+                if (err instanceof Error) throw err
+                throw new Error('Unable to load dashboard data (unknown error).')
+            }
+
+            // In test/production, keep the UI-facing message stable.
             throw new Error('Unable to load dashboard data. Please try again.')
         }
     }
