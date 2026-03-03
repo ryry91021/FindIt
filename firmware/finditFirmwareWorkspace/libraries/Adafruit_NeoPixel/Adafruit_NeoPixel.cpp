@@ -2511,7 +2511,7 @@ void Adafruit_NeoPixel::show(void) {
 #endif
 
 //----
-#elif defined(XMC1100_XMC2GO) || defined(XMC1400_Arduino_Kit) || defined(XMC1100_H_BRIDGE2GO) || defined(XMC1100_Boot_Kit)  || defined(XMC1300_Boot_Kit)
+#elif defined(XMC1100_XMC2GO) || defined(XMC1400_XMC2GO) || defined(XMC1400_Arduino_Kit) || defined(XMC1100_H_BRIDGE2GO) || defined(XMC1100_Boot_Kit)  || defined(XMC1300_Boot_Kit)
 
   // XMC1100/1200/1300 with ARM Cortex M0 are running with 32MHz, XMC1400 runs with 48MHz so may not work
   // Tried this with a timer/counter, couldn't quite get adequate
@@ -3784,3 +3784,4 @@ neoPixelType Adafruit_NeoPixel::str2order(const char *v) {
   if (w < 0) w = r; // If 'w' not specified, duplicate r bits
   return (w << 6) | (r << 4) | ((g & 3) << 2) | (b & 3);
 }
+
