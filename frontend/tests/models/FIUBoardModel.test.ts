@@ -1,4 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+type QueryResponse<T> = Promise<{ data: T; error: null }>
+
+type QueryBuilder = {
+  select: (columns: string) => QueryBuilder
+  order: (column: string, opts: { ascending: boolean }) => QueryResponse<unknown[]>
+  eq: (column: string, value: unknown) => QueryResponse<unknown[]>
+  in: (column: string, values: unknown) => QueryResponse<unknown[]>
+}
 
 /**
  * Minimal query builder mock that supports the subset of Supabase methods used by FIUBoardModel.
@@ -17,19 +27,6 @@ function makeClient(responses: {
       table,
     }
 
-    const builder: any = {
-      select: vi.fn(() => builder),
-      order: vi.fn(() => Promise.resolve({ data: pick(state), error: null })),
-      eq: vi.fn((col: string, val: unknown) => {
-        state.filter = { op: 'eq', col, val }
-        return Promise.resolve({ data: pick(state), error: null })
-      }),
-      in: vi.fn((col: string, val: unknown) => {
-        state.filter = { op: 'in', col, val }
-        return Promise.resolve({ data: pick(state), error: null })
-      }),
-    }
-
     function pick(s: typeof state) {
       if (s.table === 'group_members') return responses.group_members ?? []
       if (s.table === 'groups') return responses.groups ?? []
@@ -42,10 +39,30 @@ function makeClient(responses: {
       return []
     }
 
+    const builder: QueryBuilder = {
+      select: (columns: string) => {
+        void columns
+        return builder
+      },
+      order: (column: string, opts: { ascending: boolean }) => {
+        void column
+        void opts
+        return Promise.resolve({ data: pick(state), error: null })
+      },
+      eq: (col: string, val: unknown) => {
+        state.filter = { op: 'eq', col, val }
+        return Promise.resolve({ data: pick(state), error: null })
+      },
+      in: (col: string, val: unknown) => {
+        state.filter = { op: 'in', col, val }
+        return Promise.resolve({ data: pick(state), error: null })
+      },
+    }
+
     return builder
   })
 
-  return { from } as any
+  return { from } as unknown as SupabaseClient
 }
 
 describe('FIUBoardModel.fetchBoardsForUser', () => {
