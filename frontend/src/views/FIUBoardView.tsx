@@ -4,8 +4,10 @@
 
     - Provides status of the
             boards
+            boards
 
     - Handle data clearing on
+            sign-out
             sign-out
 */
 

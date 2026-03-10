@@ -5,6 +5,10 @@
                 - deviceID
                 - Lat, lon
                 - Timestamp label
+            records:
+                - deviceID
+                - Lat, lon
+                - Timestamp label
       Retrieves location data from
         - database for user's boards
 */
