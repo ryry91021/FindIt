@@ -1,20 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
+import type {
+    FIUGroupJoinRequestEntity,
+    FIUGroupMemberEntity,
+} from '../entities/FIUGroupMembershipEntities'
 import { supabase } from '../services/supabaseClient'
 import { FIUModel } from './FIUModel'
 
-export interface FIUGroupJoinRequestEntity {
-    id: string
-    group_id: string
-    requester_id: string
-    status: string
-}
-
-export interface FIUGroupMemberEntity {
-    group_id: string
-    user_id: string
-    user_name: string
-}
+export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 
 /** Model wrapper for group entities and group data access methods. */
 export class FIUGroupModel extends FIUModel<FIUGroupEntity> {

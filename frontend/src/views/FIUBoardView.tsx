@@ -12,6 +12,7 @@
 */
 
 import { Component, createRef } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { FIUMapView } from './FIUMapView'
@@ -20,6 +21,8 @@ import { FIUGroupView } from './FIUGroupView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
+import { Modal } from '../components/Modal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import '../components/Dashboard.css'
 
 export type SidebarModalAction =
@@ -323,37 +326,19 @@ export class FIUBoardView extends Component<Props, State> {
                     </button>
                 </div>
 
-                {confirmBoardDeleteOpen && (
-                    <div className="group-modal-overlay" onClick={this.closeBoardDeleteConfirm}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Confirm remove board"
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <h3>Remove Board</h3>
-                            <p>Are you sure you want to remove this board?</p>
-                            <div className="board-edit-popup-actions">
-                                <button
-                                    type="button"
-                                    className="board-management-button"
-                                    onClick={this.closeBoardDeleteConfirm}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="board-management-danger"
-                                    onClick={this.handleDeleteBoard}
-                                    disabled={boardActionBusy}
-                                >
-                                    Confirm Remove
-                                </button>
-                            </div>
-                        </section>
-                    </div>
-                )}
+                <ConfirmDialog
+                    open={confirmBoardDeleteOpen}
+                    onCancel={this.closeBoardDeleteConfirm}
+                    onConfirm={() => {
+                        void this.handleDeleteBoard()
+                    }}
+                    title="Remove Board"
+                    message="Are you sure you want to remove this board?"
+                    ariaLabel="Confirm remove board"
+                    busy={boardActionBusy}
+                    confirmLabel="Confirm Remove"
+                    cancelLabel="Cancel"
+                />
 
                 {boardActionError && <p className="board-management-error">{boardActionError}</p>}
                 {boardActionSuccess && <p className="board-management-success">{boardActionSuccess}</p>}
@@ -380,14 +365,15 @@ export class FIUBoardView extends Component<Props, State> {
                 </div>
 
                 {editPopupOpen && (
-                    <div className="board-edit-popup-overlay" onClick={this.closeEditPopup}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Edit board"
-                            onClick={(event) => event.stopPropagation()}
-                        >
+                    <Modal
+                        open={editPopupOpen}
+                        onRequestClose={this.closeEditPopup}
+                        overlayClassName="board-edit-popup-overlay"
+                        contentClassName="board-edit-popup"
+                        contentProps={{
+                            'aria-label': 'Edit board',
+                        }}
+                    >
                             <h3>Edit Board</h3>
                             <input
                                 className="board-management-input board-edit-compact"
@@ -439,8 +425,7 @@ export class FIUBoardView extends Component<Props, State> {
                                     Submit
                                 </button>
                             </div>
-                        </section>
-                    </div>
+                    </Modal>
                 )}
             </div>
         )
@@ -596,58 +581,57 @@ export class FIUBoardView extends Component<Props, State> {
                 </aside>
 
                 {modalOpen && (
-                    <div
-                        className="sidebar-modal-overlay"
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Close modal overlay"
-                        onClick={this.closeModal}
-                        onKeyDown={(event) => {
-                            if (event.target !== event.currentTarget) return
-                            if (event.key === 'Enter' || event.key === ' ') {
-                                this.closeModal()
-                            }
+                    <Modal
+                        open={modalOpen}
+                        onRequestClose={this.closeModal}
+                        overlayClassName="sidebar-modal-overlay"
+                        contentClassName="sidebar-modal"
+                        overlayProps={{
+                            role: 'button',
+                            tabIndex: 0,
+                            'aria-label': 'Close modal overlay',
+                            onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+                                if (event.target !== event.currentTarget) return
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    this.closeModal()
+                                }
+                            },
+                        }}
+                        contentProps={{
+                            'aria-labelledby': 'sidebar-modal-title',
                         }}
                     >
-                        <section
-                            className="sidebar-modal"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-labelledby="sidebar-modal-title"
-                            onClick={(event) => event.stopPropagation()}
+                        <button
+                            type="button"
+                            className="sidebar-modal-close"
+                            aria-label="Close modal"
+                            onClick={this.closeModal}
                         >
-                            <button
-                                type="button"
-                                className="sidebar-modal-close"
-                                aria-label="Close modal"
-                                onClick={this.closeModal}
-                            >
-                                ✕
-                            </button>
-                            <h2 id="sidebar-modal-title">{this.getModalTitle(activeModalAction)}</h2>
-                            {activeModalAction === 'board-management' ? (
-                                this.renderBoardManagement()
-                            ) : activeModalAction === 'group-settings' ? (
-                                <FIUGroupView
-                                    groups={this.props.groups}
-                                    boards={this.props.boards}
-                                    groupMembers={this.props.groupMembers}
-                                    pendingJoinRequests={this.props.pendingGroupJoinRequests}
-                                    onCreateGroup={this.props.onCreateGroup}
-                                    onDeleteGroup={this.props.onDeleteGroup}
-                                    onRenameGroup={this.props.onRenameGroup}
-                                    onUpdateGroupBoards={this.props.onUpdateGroupBoards}
-                                    onJoinGroup={this.props.onJoinGroup}
-                                    onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
-                                />
-                            ) : (
-                                <p>
-                                    This section is ready for your next feature. Add controls and content
-                                    for this menu here.
-                                </p>
-                            )}
-                        </section>
-                    </div>
+                            ✕
+                        </button>
+                        <h2 id="sidebar-modal-title">{this.getModalTitle(activeModalAction)}</h2>
+                        {activeModalAction === 'board-management' ? (
+                            this.renderBoardManagement()
+                        ) : activeModalAction === 'group-settings' ? (
+                            <FIUGroupView
+                                groups={this.props.groups}
+                                boards={this.props.boards}
+                                groupMembers={this.props.groupMembers}
+                                pendingJoinRequests={this.props.pendingGroupJoinRequests}
+                                onCreateGroup={this.props.onCreateGroup}
+                                onDeleteGroup={this.props.onDeleteGroup}
+                                onRenameGroup={this.props.onRenameGroup}
+                                onUpdateGroupBoards={this.props.onUpdateGroupBoards}
+                                onJoinGroup={this.props.onJoinGroup}
+                                onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
+                            />
+                        ) : (
+                            <p>
+                                This section is ready for your next feature. Add controls and content for
+                                this menu here.
+                            </p>
+                        )}
+                    </Modal>
                 )}
 
                 {/* Account menu (top-right overlay) */}

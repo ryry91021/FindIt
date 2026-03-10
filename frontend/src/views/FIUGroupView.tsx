@@ -3,6 +3,8 @@ import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
+import { Modal } from '../components/Modal'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 type Props = {
     groups: FIUGroupEntity[]
@@ -310,7 +312,7 @@ export class FIUGroupView extends Component<Props, State> {
                                 <div key={group.id} className="board-management-item">
                                 <div className="group-item-main">
                                     <strong>{group.name ?? 'Untitled Group'}</strong>
-                                    <span className="group-item-id">UUID: {group.id}</span>
+                                    {/* <span className="group-item-id">UUID: {group.id}</span> */}
                                 </div>
                                 <div className="group-item-actions">
                                     <button
@@ -452,14 +454,15 @@ export class FIUGroupView extends Component<Props, State> {
                 </section>
 
                 {createModalOpen && (
-                    <div className="group-modal-overlay" onClick={this.closeCreateModal}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Create group"
-                            onClick={(event) => event.stopPropagation()}
-                        >
+                    <Modal
+                        open={createModalOpen}
+                        onRequestClose={this.closeCreateModal}
+                        overlayClassName="group-modal-overlay"
+                        contentClassName="board-edit-popup"
+                        contentProps={{
+                            'aria-label': 'Create group',
+                        }}
+                    >
                             <h3>Create Group</h3>
                             <input
                                 className="board-management-input group-text-input"
@@ -508,19 +511,19 @@ export class FIUGroupView extends Component<Props, State> {
                                     Create
                                 </button>
                             </div>
-                        </section>
-                    </div>
+                    </Modal>
                 )}
 
                 {joinModalOpen && (
-                    <div className="group-modal-overlay" onClick={this.closeJoinModal}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Join group"
-                            onClick={(event) => event.stopPropagation()}
-                        >
+                    <Modal
+                        open={joinModalOpen}
+                        onRequestClose={this.closeJoinModal}
+                        overlayClassName="group-modal-overlay"
+                        contentClassName="board-edit-popup"
+                        contentProps={{
+                            'aria-label': 'Join group',
+                        }}
+                    >
                             <h3>Join Group</h3>
                             <input
                                 className="board-management-input group-text-input"
@@ -547,19 +550,19 @@ export class FIUGroupView extends Component<Props, State> {
                                     Request to Join
                                 </button>
                             </div>
-                        </section>
-                    </div>
+                    </Modal>
                 )}
 
                 {editModalOpen && (
-                    <div className="group-modal-overlay" onClick={this.closeEditModal}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Edit group"
-                            onClick={(event) => event.stopPropagation()}
-                        >
+                    <Modal
+                        open={editModalOpen}
+                        onRequestClose={this.closeEditModal}
+                        overlayClassName="group-modal-overlay"
+                        contentClassName="board-edit-popup"
+                        contentProps={{
+                            'aria-label': 'Edit group',
+                        }}
+                    >
                             <h3>Edit Group</h3>
                             <input
                                 className="board-management-input group-text-input"
@@ -609,41 +612,23 @@ export class FIUGroupView extends Component<Props, State> {
                                     Save
                                 </button>
                             </div>
-                        </section>
-                    </div>
+                    </Modal>
                 )}
 
-                {confirmDeleteGroupId && (
-                    <div className="group-modal-overlay" onClick={this.closeGroupDeleteConfirm}>
-                        <section
-                            className="board-edit-popup"
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="Confirm remove group"
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            <h3>Remove Group</h3>
-                            <p>Are you sure you want to remove this group?</p>
-                            <div className="board-edit-popup-actions">
-                                <button
-                                    type="button"
-                                    className="board-management-button"
-                                    onClick={this.closeGroupDeleteConfirm}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="board-management-danger"
-                                    onClick={() => this.handleDeleteGroup(confirmDeleteGroupId)}
-                                    disabled={busy}
-                                >
-                                    Confirm Remove
-                                </button>
-                            </div>
-                        </section>
-                    </div>
-                )}
+                <ConfirmDialog
+                    open={Boolean(confirmDeleteGroupId)}
+                    onCancel={this.closeGroupDeleteConfirm}
+                    onConfirm={() => {
+                        if (!confirmDeleteGroupId) return
+                        void this.handleDeleteGroup(confirmDeleteGroupId)
+                    }}
+                    title="Remove Group"
+                    message="Are you sure you want to remove this group?"
+                    ariaLabel="Confirm remove group"
+                    busy={busy}
+                    confirmLabel="Confirm Remove"
+                    cancelLabel="Cancel"
+                />
             </>
         )
     }
