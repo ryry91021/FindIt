@@ -6,6 +6,7 @@ import type {
 } from '../entities/FIUGroupMembershipEntities'
 import { supabase } from '../services/supabaseClient'
 import { FIUModel } from './FIUModel'
+import { FIUProfileModel } from './FIUProfileModel'
 
 export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 
@@ -430,32 +431,13 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             labelByUserId.set(id, `No name set (${id.slice(0, 8)})`)
         })
 
-        if (uniqueUserIds.length > 0) {
-            const { data: profiles, error: profileErr } = await client
-                .from('profiles')
-                .select('id, full_name, display_name, username, email')
-                .in('id', uniqueUserIds)
-
-            if (profileErr) {
-                console.warn('FIUGroupModel.fetchMembersForGroups: profiles query failed', profileErr)
-            } else {
-                ;(profiles ?? []).forEach((profile) => {
-                    const item = profile as {
-                        id?: string | null
-                        full_name?: string | null
-                        display_name?: string | null
-                        username?: string | null
-                        email?: string | null
-                    }
-                    if (!item.id) return
-                    const label =
-                        item.full_name?.trim() ||
-                        item.display_name?.trim() ||
-                        item.username?.trim() ||
-                        item.email?.trim()
-                    if (label) labelByUserId.set(item.id, label)
-                })
-            }
+        try {
+            const profileLabels = await FIUProfileModel.fetchLabelsForUsers(uniqueUserIds, client)
+            profileLabels.forEach((label, userId) => {
+                labelByUserId.set(userId, label)
+            })
+        } catch (err) {
+            console.warn('FIUGroupModel.fetchMembersForGroups: profiles lookup failed', err)
         }
 
         return rows.map((row) => ({

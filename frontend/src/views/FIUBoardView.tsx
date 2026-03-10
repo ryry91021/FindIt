@@ -31,7 +31,9 @@ export type SidebarModalAction =
     | 'group-settings'
 
 interface Props {
+    userId?: string
     userEmail?: string
+    userDisplayName?: string
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
     groups: FIUGroupEntity[]
@@ -50,6 +52,7 @@ interface Props {
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToGroupJoinRequest: (requestId: string, accept: boolean) => Promise<void>
+    onDisplayNameUpdated?: (nextDisplayName: string) => void
 }
 type State = {
     sidebarOpen: boolean
@@ -62,6 +65,7 @@ type State = {
     editBoardId: string
     editBoardName: string
     editGroupId: string
+    editOriginalGroupId: string
     showGroupPicker: boolean
     boardActionError: string | null
     boardActionSuccess: string | null
@@ -85,6 +89,7 @@ export class FIUBoardView extends Component<Props, State> {
         editBoardId: '',
         editBoardName: '',
         editGroupId: '',
+        editOriginalGroupId: '',
         showGroupPicker: false,
         boardActionError: null,
         boardActionSuccess: null,
@@ -124,6 +129,7 @@ export class FIUBoardView extends Component<Props, State> {
             editBoardId: '',
             editBoardName: '',
             editGroupId: '',
+            editOriginalGroupId: '',
             showGroupPicker: false,
             boardActionError: null,
             boardActionSuccess: null,
@@ -137,7 +143,8 @@ export class FIUBoardView extends Component<Props, State> {
             editPopupOpen: true,
             editBoardId: board.id,
             editBoardName: board.display_name ?? '',
-            editGroupId: '',
+            editGroupId: board.group_id ?? '',
+            editOriginalGroupId: board.group_id ?? '',
             showGroupPicker: false,
             boardActionError: null,
             boardActionSuccess: null,
@@ -151,6 +158,7 @@ export class FIUBoardView extends Component<Props, State> {
             editBoardId: '',
             editBoardName: '',
             editGroupId: '',
+            editOriginalGroupId: '',
             showGroupPicker: false,
             boardActionError: null,
             boardActionSuccess: null,
@@ -230,13 +238,14 @@ export class FIUBoardView extends Component<Props, State> {
         const boardId = this.state.editBoardId
         const newName = this.state.editBoardName.trim()
         const groupId = this.state.editGroupId
+        const originalGroupId = this.state.editOriginalGroupId
         if (!boardId || !newName) return
 
         try {
             this.setBusy(true)
             this.clearMessages()
             await this.props.onRenameBoard(boardId, newName)
-            if (groupId) {
+            if (groupId && groupId !== originalGroupId) {
                 await this.props.onAddBoardToGroup(boardId, groupId)
             }
             this.setState({
@@ -265,12 +274,17 @@ export class FIUBoardView extends Component<Props, State> {
             editPopupOpen,
             editBoardName,
             editGroupId,
+            editOriginalGroupId,
             showGroupPicker,
             boardActionError,
             boardActionSuccess,
             boardActionBusy,
             confirmBoardDeleteOpen,
         } = this.state
+
+        const currentGroupName = editOriginalGroupId
+            ? groups.find((g) => g.id === editOriginalGroupId)?.name
+            : undefined
 
         return (
             <div className="board-management-page">
@@ -390,8 +404,11 @@ export class FIUBoardView extends Component<Props, State> {
                                     this.setState((prev) => ({ showGroupPicker: !prev.showGroupPicker }))
                                 }
                             >
-                                Add to Group
+                                {currentGroupName ? 'Change Group' : 'Add to Group'}
                             </button>
+                            <p className="board-management-subtitle" style={{ margin: 0 }}>
+                                Current group: {currentGroupName ?? 'None'}
+                            </p>
                             {showGroupPicker && (
                                 <select
                                     className="board-management-input board-edit-compact"
@@ -403,7 +420,7 @@ export class FIUBoardView extends Component<Props, State> {
                                     <option value="">Select group</option>
                                     {groups.map((group) => (
                                         <option key={group.id} value={group.id}>
-                                            {group.name}
+                                            {group.name}{group.id === editOriginalGroupId ? ' (current)' : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -635,7 +652,13 @@ export class FIUBoardView extends Component<Props, State> {
                 )}
 
                 {/* Account menu (top-right overlay) */}
-                <FIUAccountView userEmail={userEmail} onSignOut={onSignOut} />
+                <FIUAccountView
+                    userId={this.props.userId}
+                    userEmail={userEmail}
+                    userDisplayName={this.props.userDisplayName}
+                    onDisplayNameUpdated={this.props.onDisplayNameUpdated}
+                    onSignOut={onSignOut}
+                />
 
                 {/* Error box (VISIBLE) */}
                 {error && (

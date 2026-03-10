@@ -16,6 +16,7 @@ import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntit
 import { authService } from '../services/authService'
 import { FIUBoardModel } from '../models/FIUBoardModel'
 import { FIUGroupModel } from '../models/FIUGroupModel'
+import { FIUProfileModel } from '../models/FIUProfileModel'
 import { FIUBoardView } from '../views/FIUBoardView'
 import type { SidebarModalAction } from '../views/FIUBoardView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
@@ -36,6 +37,7 @@ type State = {
     groups: FIUGroupEntity[]
     groupMembers: FIUGroupMemberEntity[]
     pendingGroupJoinRequests: FIUGroupJoinRequestEntity[]
+    userDisplayName?: string
     error: string | null
 }
 
@@ -50,6 +52,7 @@ export class FIUBoardController extends Component<Props, State> {
         groups: [],
         groupMembers: [],
         pendingGroupJoinRequests: [],
+        userDisplayName: undefined,
         error: null,
     }
 
@@ -99,10 +102,11 @@ export class FIUBoardController extends Component<Props, State> {
 
         try {
             this.setState({ error: null })
-            const [res, groups, pendingGroupJoinRequests] = await Promise.all([
+            const [res, groups, pendingGroupJoinRequests, userDisplayName] = await Promise.all([
                 this.loadBoardsAndLatestLocations(this.props.userId),
                 FIUGroupModel.fetchGroupsForUser(this.props.userId),
                 FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+                FIUProfileModel.fetchBestLabelForUser(this.props.userId, this.props.userEmail),
             ])
             const groupMembers = await FIUGroupModel.fetchMembersForGroups(
                 groups.map((group) => group.id)
@@ -115,6 +119,7 @@ export class FIUBoardController extends Component<Props, State> {
                 groups,
                 groupMembers,
                 pendingGroupJoinRequests,
+                userDisplayName,
             })
         } catch (err) {
             if (this.cancelled) return
@@ -130,15 +135,17 @@ export class FIUBoardController extends Component<Props, State> {
                 groups: [],
                 groupMembers: [],
                 pendingGroupJoinRequests: [],
+                userDisplayName: undefined,
             })
         }
     }
 
     private async refreshBoardsAndGroups(): Promise<void> {
-        const [res, groups, pendingGroupJoinRequests] = await Promise.all([
+        const [res, groups, pendingGroupJoinRequests, userDisplayName] = await Promise.all([
             this.loadBoardsAndLatestLocations(this.props.userId),
             FIUGroupModel.fetchGroupsForUser(this.props.userId),
             FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+            FIUProfileModel.fetchBestLabelForUser(this.props.userId, this.props.userEmail),
         ])
         const groupMembers = await FIUGroupModel.fetchMembersForGroups(
             groups.map((group) => group.id)
@@ -150,6 +157,7 @@ export class FIUBoardController extends Component<Props, State> {
             groups,
             groupMembers,
             pendingGroupJoinRequests,
+            userDisplayName,
         })
     }
 
@@ -226,6 +234,10 @@ export class FIUBoardController extends Component<Props, State> {
         this.props.onLogout()
     }
 
+    private handleDisplayNameUpdated = (nextDisplayName: string): void => {
+        this.setState({ userDisplayName: nextDisplayName })
+    }
+
     /** Receives sidebar modal actions for future orchestration hooks. */
     private handleSidebarAction = (action: SidebarModalAction): void => {
         void action
@@ -234,11 +246,13 @@ export class FIUBoardController extends Component<Props, State> {
 
     render() {
         const { userEmail } = this.props
-        const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, error } = this.state
+        const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, error, userDisplayName } = this.state
 
         return (
             <FIUBoardView
+                userId={this.props.userId}
                 userEmail={userEmail}
+                userDisplayName={userDisplayName}
                 boards={boards}
                 locations={locations}
                 groups={groups}
@@ -246,6 +260,7 @@ export class FIUBoardController extends Component<Props, State> {
                 error={error}
                 pendingGroupJoinRequests={pendingGroupJoinRequests}
                 onSignOut={this.handleSignOut}
+                onDisplayNameUpdated={this.handleDisplayNameUpdated}
                 onSidebarAction={this.handleSidebarAction}
                 onCreateBoard={this.handleCreateBoard}
                 onDeleteBoard={this.handleDeleteBoard}

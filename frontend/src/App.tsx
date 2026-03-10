@@ -3,18 +3,15 @@ import { Login } from './components/Login'
 import { Signup } from './components/Signup'
 import { Dashboard } from './components/Dashboard'
 import { supabase } from './services/supabaseClient'
+import type { User } from '@supabase/supabase-js'
+import { FIUProfileModel } from './models/FIUProfileModel'
 import './App.css'
-
-type SupabaseUser = {
-  id: string
-  email?: string
-}
 
 type AuthPage = 'login' | 'signup'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<AuthPage>('login')
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -59,6 +56,12 @@ function App() {
       authListener.subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    // Ensure the signed-in user has a profile row to read display_name from.
+    if (!user) return
+    void FIUProfileModel.ensureProfileForUser(user)
+  }, [user])
 
   if (loading) {
     return <div className="loading">Loading...</div>
