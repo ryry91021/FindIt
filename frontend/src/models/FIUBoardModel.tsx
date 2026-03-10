@@ -23,6 +23,92 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         return this.entity.display_name
     }
 
+    /** Device EUI used to identify hardware on LoRaWAN network server. */
+    get deviceEui() {
+        return this.entity.device_eui
+    }
+
+    private static async resolveUserId(
+        userId?: string,
+        client: SupabaseClient = supabase
+    ): Promise<string | undefined> {
+        if (userId) return userId
+        const { data, error } = await client.auth.getSession()
+        if (error) {
+            console.error('FIUBoardModel.resolveUserId: auth.getSession failed', error)
+            throw new Error('Unable to resolve user identity.')
+        }
+        return data.session?.user?.id
+    }
+
+    /** Creates a board/device for the authenticated user. */
+    static async createBoard(
+        displayName: string,
+        deviceEui: string,
+        userId?: string,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const ownerId = await FIUBoardModel.resolveUserId(userId, client)
+        if (!ownerId) throw new Error('Unable to create board without a user session.')
+
+        const { error } = await client.from('devices').insert({
+            owner_id: ownerId,
+            display_name: displayName,
+            device_eui: deviceEui,
+        })
+
+        if (error) {
+            console.error('FIUBoardModel.createBoard: insert failed', error)
+            throw new Error('Unable to create board.')
+        }
+    }
+
+    /** Deletes a board/device by id. */
+    static async deleteBoard(
+        boardId: string,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const { error } = await client.from('devices').delete().eq('id', boardId)
+        if (error) {
+            console.error('FIUBoardModel.deleteBoard: delete failed', error)
+            throw new Error('Unable to remove board.')
+        }
+    }
+
+    /** Renames a board/device. */
+    static async renameBoard(
+        boardId: string,
+        displayName: string,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const { error } = await client
+            .from('devices')
+            .update({ display_name: displayName })
+            .eq('id', boardId)
+
+        if (error) {
+            console.error('FIUBoardModel.renameBoard: update failed', error)
+            throw new Error('Unable to rename board.')
+        }
+    }
+
+    /** Assigns a board/device to a group. */
+    static async assignBoardToGroup(
+        boardId: string,
+        groupId: string,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const { error } = await client
+            .from('devices')
+            .update({ group_id: groupId })
+            .eq('id', boardId)
+
+        if (error) {
+            console.error('FIUBoardModel.assignBoardToGroup: update failed', error)
+            throw new Error('Unable to add board to group.')
+        }
+    }
+
     /** Fetches all boards the user owns or has access to. */
     static async fetchBoardsForUser(
         userId?: string,
@@ -66,7 +152,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         // This is the most robust approach when membership tables are not directly selectable.
         const { data: accessibleDevices, error: accessibleErr } = await client
             .from('devices')
-            .select('id, display_name')
+            .select('id, display_name, device_eui, group_id')
             .order('created_at', { ascending: false })
 
         if (accessibleErr) {
@@ -162,7 +248,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         if (memberDeviceIds.length > 0) {
             const { data: sharedData, error: sharedErr } = await client
                 .from('devices')
-                .select('id, display_name')
+                .select('id, display_name, device_eui, group_id')
                 .in('id', memberDeviceIds)
 
             if (sharedErr) {
@@ -177,7 +263,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         if (groupIds.length > 0) {
             const { data: groupData, error: groupErr } = await client
                 .from('devices')
-                .select('id, display_name')
+                .select('id, display_name, device_eui, group_id')
                 .in('group_id', groupIds)
 
             if (groupErr) {
@@ -198,6 +284,65 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         }
 
         return Array.from(byId.values())
+    }
+
+    /** Replaces the selected board assignments for a given group. */
+    static async setBoardsForGroup(
+        groupId: string,
+        selectedBoardIds: string[],
+        accessibleBoardIds: string[],
+        currentGroupBoardIds: string[],
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const selectedSet = new Set(selectedBoardIds)
+        const currentGroupSet = new Set(currentGroupBoardIds)
+
+        // First clear any currently assigned boards for this group that are no longer selected.
+        const idsToClear = accessibleBoardIds.filter(
+            (boardId) => !selectedSet.has(boardId) && currentGroupSet.has(boardId)
+        )
+
+        for (const boardId of idsToClear) {
+            const { data, error } = await client
+                .from('devices')
+                .update({ group_id: null })
+                .eq('id', boardId)
+                .select('id')
+                .maybeSingle()
+
+            if (error) {
+                console.error('FIUBoardModel.setBoardsForGroup: clear failed', error)
+                throw new Error('Unable to remove board from group.')
+            }
+
+            if (!data) {
+                throw new Error('Unable to remove board from group (not permitted by policy).')
+            }
+        }
+
+        // Then assign every selected board to the target group.
+        for (const boardId of selectedBoardIds) {
+            const { data, error } = await client
+                .from('devices')
+                .update({ group_id: groupId })
+                .eq('id', boardId)
+                .select('id, group_id')
+                .maybeSingle()
+
+            if (error) {
+                console.error('FIUBoardModel.setBoardsForGroup: assign failed', error)
+                throw new Error('Unable to assign selected boards to group.')
+            }
+
+            if (!data) {
+                throw new Error('Unable to assign selected boards to group (not permitted by policy).')
+            }
+
+            const updated = data as { group_id?: string | null }
+            if (updated.group_id !== groupId) {
+                throw new Error('Unable to assign selected boards to group (assignment not persisted).')
+            }
+        }
     }
 
     /** Convenience method for dashboard data loading. */

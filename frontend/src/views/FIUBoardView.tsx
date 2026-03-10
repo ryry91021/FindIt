@@ -1,12 +1,12 @@
 /*
     Responsibilities:
-    - Creates boards legend​
+        - Creates boards legend
 
     - Provides status of the
-      boards​
+            boards
 
     - Handle data clearing on
-      sign-out​
+            sign-out
 */
 
 import { Component, createRef } from 'react'
@@ -14,17 +14,54 @@ import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { FIUMapView } from './FIUMapView'
 import { FIUAccountView } from './FIUAccountView'
+import { FIUGroupView } from './FIUGroupView'
+import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
+import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
+import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
 import '../components/Dashboard.css'
+
+export type SidebarModalAction =
+    | 'board-management'
+    | 'geofence-management'
+    | 'group-settings'
 
 interface Props {
     userEmail?: string
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
+    groups: FIUGroupEntity[]
+    groupMembers: FIUGroupMemberEntity[]
+    pendingGroupJoinRequests: FIUGroupJoinRequestEntity[]
     error: string | null
     onSignOut: () => void
+    onSidebarAction: (action: SidebarModalAction) => void
+    onCreateBoard: (displayName: string, deviceEui: string) => Promise<void>
+    onDeleteBoard: (boardId: string) => Promise<void>
+    onRenameBoard: (boardId: string, newName: string) => Promise<void>
+    onAddBoardToGroup: (boardId: string, groupId: string) => Promise<void>
+    onCreateGroup: (name: string, boardIds: string[]) => Promise<void>
+    onDeleteGroup: (groupId: string) => Promise<void>
+    onRenameGroup: (groupId: string, name: string) => Promise<void>
+    onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
+    onJoinGroup: (groupId: string) => Promise<void>
+    onRespondToGroupJoinRequest: (requestId: string, accept: boolean) => Promise<void>
 }
 type State = {
     sidebarOpen: boolean
+    modalOpen: boolean
+    activeModalAction: SidebarModalAction | null
+    createBoardName: string
+    createBoardEui: string
+    selectedBoardIdForRemoval: string
+    editPopupOpen: boolean
+    editBoardId: string
+    editBoardName: string
+    editGroupId: string
+    showGroupPicker: boolean
+    boardActionError: string | null
+    boardActionSuccess: string | null
+    boardActionBusy: boolean
+    confirmBoardDeleteOpen: boolean
 }
 
 /**
@@ -32,7 +69,23 @@ type State = {
  * Renders based on props (no DB access / request flow).
  */
 export class FIUBoardView extends Component<Props, State> {
-    state: State = { sidebarOpen: false }
+    state: State = {
+        sidebarOpen: false,
+        modalOpen: false,
+        activeModalAction: null,
+        createBoardName: '',
+        createBoardEui: '',
+        selectedBoardIdForRemoval: '',
+        editPopupOpen: false,
+        editBoardId: '',
+        editBoardName: '',
+        editGroupId: '',
+        showGroupPicker: false,
+        boardActionError: null,
+        boardActionSuccess: null,
+        boardActionBusy: false,
+        confirmBoardDeleteOpen: false,
+    }
 
     private mapContainerRef = createRef<HTMLDivElement>()
     private mapView = new FIUMapView()
@@ -45,6 +98,351 @@ export class FIUBoardView extends Component<Props, State> {
         this.setState({ sidebarOpen: false })
     }
 
+    private openModalForAction = (action: SidebarModalAction) => {
+        this.props.onSidebarAction(action)
+        this.setState({
+            sidebarOpen: false,
+            modalOpen: true,
+            activeModalAction: action,
+        })
+    }
+
+    private closeModal = () => {
+        this.setState({
+            modalOpen: false,
+            activeModalAction: null,
+            editPopupOpen: false,
+            editBoardId: '',
+            editBoardName: '',
+            editGroupId: '',
+            showGroupPicker: false,
+            boardActionError: null,
+            boardActionSuccess: null,
+            confirmBoardDeleteOpen: false,
+        })
+    }
+
+    private openEditPopup = (board: FIUBoardEntity) => {
+        this.setState({
+            editPopupOpen: true,
+            editBoardId: board.id,
+            editBoardName: board.display_name ?? '',
+            editGroupId: '',
+            showGroupPicker: false,
+            boardActionError: null,
+            boardActionSuccess: null,
+        })
+    }
+
+    private closeEditPopup = () => {
+        this.setState({
+            editPopupOpen: false,
+            editBoardId: '',
+            editBoardName: '',
+            editGroupId: '',
+            showGroupPicker: false,
+            boardActionError: null,
+            boardActionSuccess: null,
+        })
+    }
+
+    private setBusy = (busy: boolean) => {
+        this.setState({ boardActionBusy: busy })
+    }
+
+    private clearMessages = () => {
+        this.setState({ boardActionError: null, boardActionSuccess: null })
+    }
+
+    private handleCreateBoard = async () => {
+        const name = this.state.createBoardName.trim()
+        const eui = this.state.createBoardEui.trim()
+        if (!name || !eui) return
+
+        try {
+            this.setBusy(true)
+            this.clearMessages()
+            await this.props.onCreateBoard(name, eui)
+            this.setState({
+                createBoardName: '',
+                createBoardEui: '',
+                boardActionSuccess: 'Board added.',
+            })
+        } catch (err) {
+            this.setState({
+                boardActionError: err instanceof Error ? err.message : 'Unable to add board.',
+            })
+        } finally {
+            this.setBusy(false)
+        }
+    }
+
+    private handleDeleteBoard = async () => {
+        const boardId = this.state.selectedBoardIdForRemoval
+        if (!boardId) return
+
+        try {
+            this.setBusy(true)
+            this.clearMessages()
+            await this.props.onDeleteBoard(boardId)
+            this.setState({
+                selectedBoardIdForRemoval: '',
+                boardActionSuccess: 'Board removed.',
+                confirmBoardDeleteOpen: false,
+            })
+        } catch (err) {
+            this.setState({
+                boardActionError: err instanceof Error ? err.message : 'Unable to remove board.',
+            })
+        } finally {
+            this.setBusy(false)
+        }
+    }
+
+    private openBoardDeleteConfirm = () => {
+        if (!this.state.selectedBoardIdForRemoval) return
+        this.setState({ confirmBoardDeleteOpen: true })
+    }
+
+    private closeBoardDeleteConfirm = () => {
+        this.setState({ confirmBoardDeleteOpen: false })
+    }
+
+    private handleEditSubmit = async () => {
+        const boardId = this.state.editBoardId
+        const newName = this.state.editBoardName.trim()
+        const groupId = this.state.editGroupId
+        if (!boardId || !newName) return
+
+        try {
+            this.setBusy(true)
+            this.clearMessages()
+            await this.props.onRenameBoard(boardId, newName)
+            if (groupId) {
+                await this.props.onAddBoardToGroup(boardId, groupId)
+            }
+            this.setState({
+                boardActionSuccess: 'Board updated.',
+            })
+            this.closeEditPopup()
+        } catch (err) {
+            this.setState({
+                boardActionError: err instanceof Error ? err.message : 'Unable to update board.',
+            })
+        } finally {
+            this.setBusy(false)
+        }
+    }
+
+    private renderBoardManagement() {
+        const {
+            boards,
+            groups,
+        } = this.props
+        const {
+            createBoardName,
+            createBoardEui,
+            selectedBoardIdForRemoval,
+            editPopupOpen,
+            editBoardName,
+            editGroupId,
+            showGroupPicker,
+            boardActionError,
+            boardActionSuccess,
+            boardActionBusy,
+            confirmBoardDeleteOpen,
+        } = this.state
+
+        return (
+            <div className="board-management-page">
+                <p className="board-management-subtitle">
+                    Manage your boards, device IDs, and group assignments.
+                </p>
+
+                <div className="board-management-row">
+                    <input
+                        className="board-management-input"
+                        placeholder="Board name"
+                        value={createBoardName}
+                        onChange={(event) => this.setState({ createBoardName: event.target.value })}
+                    />
+                    <input
+                        className="board-management-input"
+                        placeholder="Device EUI"
+                        value={createBoardEui}
+                        onChange={(event) => this.setState({ createBoardEui: event.target.value })}
+                    />
+                    <button
+                        type="button"
+                        className="board-management-button"
+                        disabled={boardActionBusy || !createBoardName.trim() || !createBoardEui.trim()}
+                        onClick={this.handleCreateBoard}
+                    >
+                        Add Board
+                    </button>
+                </div>
+
+                <div className="board-management-row">
+                    <select
+                        className="board-management-input"
+                        value={selectedBoardIdForRemoval}
+                        onChange={(event) =>
+                            this.setState({ selectedBoardIdForRemoval: event.target.value })
+                        }
+                    >
+                        <option value="">Select board to remove</option>
+                        {boards.map((board) => (
+                            <option key={board.id} value={board.id}>
+                                {board.display_name ?? 'Unnamed Board'}
+                            </option>
+                        ))}
+                    </select>
+                    <button
+                        type="button"
+                        className="board-management-danger"
+                        disabled={boardActionBusy || !selectedBoardIdForRemoval}
+                        onClick={this.openBoardDeleteConfirm}
+                    >
+                        Remove Board
+                    </button>
+                </div>
+
+                {confirmBoardDeleteOpen && (
+                    <div className="group-modal-overlay" onClick={this.closeBoardDeleteConfirm}>
+                        <section
+                            className="board-edit-popup"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Confirm remove board"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <h3>Remove Board</h3>
+                            <p>Are you sure you want to remove this board?</p>
+                            <div className="board-edit-popup-actions">
+                                <button
+                                    type="button"
+                                    className="board-management-button"
+                                    onClick={this.closeBoardDeleteConfirm}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="board-management-danger"
+                                    onClick={this.handleDeleteBoard}
+                                    disabled={boardActionBusy}
+                                >
+                                    Confirm Remove
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
+
+                {boardActionError && <p className="board-management-error">{boardActionError}</p>}
+                {boardActionSuccess && <p className="board-management-success">{boardActionSuccess}</p>}
+
+                <div className="board-management-list" aria-label="Board list">
+                    {boards.length === 0 && <p>No boards found.</p>}
+                    {boards.map((board) => (
+                        <div key={board.id} className="board-management-item">
+                            <button type="button" className="board-management-link">
+                                {board.display_name ?? 'Unnamed Board'}
+                            </button>
+                            <span className="board-management-eui">
+                                deviceEUI: {board.device_eui ?? 'Unavailable'}
+                            </span>
+                            <button
+                                type="button"
+                                className="board-management-button"
+                                onClick={() => this.openEditPopup(board)}
+                            >
+                                Edit
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                {editPopupOpen && (
+                    <div className="board-edit-popup-overlay" onClick={this.closeEditPopup}>
+                        <section
+                            className="board-edit-popup"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Edit board"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <h3>Edit Board</h3>
+                            <input
+                                className="board-management-input board-edit-compact"
+                                placeholder="Change device name"
+                                value={editBoardName}
+                                onChange={(event) =>
+                                    this.setState({ editBoardName: event.target.value })
+                                }
+                            />
+                            <button
+                                type="button"
+                                className="board-management-button board-edit-group-button"
+                                onClick={() =>
+                                    this.setState((prev) => ({ showGroupPicker: !prev.showGroupPicker }))
+                                }
+                            >
+                                Add to Group
+                            </button>
+                            {showGroupPicker && (
+                                <select
+                                    className="board-management-input board-edit-compact"
+                                    value={editGroupId}
+                                    onChange={(event) =>
+                                        this.setState({ editGroupId: event.target.value })
+                                    }
+                                >
+                                    <option value="">Select group</option>
+                                    {groups.map((group) => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            <div className="board-edit-popup-actions">
+                                <button
+                                    type="button"
+                                    className="board-management-button"
+                                    onClick={this.closeEditPopup}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="board-management-button"
+                                    disabled={boardActionBusy || !editBoardName.trim()}
+                                    onClick={this.handleEditSubmit}
+                                >
+                                    Submit
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    private onWindowKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape' && this.state.modalOpen) {
+            this.closeModal()
+        }
+    }
+
+    private getModalTitle(action: SidebarModalAction | null): string {
+        if (action === 'board-management') return 'Board Management'
+        if (action === 'geofence-management') return 'Geofence Management'
+        if (action === 'group-settings') return 'Group Settings'
+        return 'Menu'
+    }
+
     componentDidMount(): void {
         const container = this.mapContainerRef.current
         if (container) {
@@ -52,6 +450,11 @@ export class FIUBoardView extends Component<Props, State> {
         }
 
         this.mapView.render(this.props.boards, this.props.locations)
+        window.addEventListener('keydown', this.onWindowKeyDown)
+    }
+
+    componentWillUnmount(): void {
+        window.removeEventListener('keydown', this.onWindowKeyDown)
     }
 
     componentDidUpdate(prevProps: Props): void {
@@ -63,7 +466,8 @@ export class FIUBoardView extends Component<Props, State> {
     /** Renders the map and board status list. */
     render() {
         const { userEmail, boards, locations, error, onSignOut } = this.props
-        const { sidebarOpen } = this.state
+        const pendingGroupCount = this.props.pendingGroupJoinRequests.length
+        const { sidebarOpen, modalOpen, activeModalAction } = this.state
 
         return (
             <div className="dashboard-root">
@@ -119,9 +523,38 @@ export class FIUBoardView extends Component<Props, State> {
                     {/* Placeholder pages (replace these later) */}
                     <nav className="sidebar-nav" aria-label="Sidebar navigation">
                         <ul>
-                            <li><button type="button" className="sidebar-link">Page placeholder 1</button></li>
-                            <li><button type="button" className="sidebar-link">Page placeholder 2</button></li>
-                            <li><button type="button" className="sidebar-link">Page placeholder 3</button></li>
+                            <li>
+                                <button
+                                    type="button"
+                                    className="sidebar-link"
+                                    onClick={() => this.openModalForAction('board-management')}
+                                >
+                                    Board Management
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    className="sidebar-link"
+                                    onClick={() => this.openModalForAction('geofence-management')}
+                                >
+                                    Geofence Management
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    className="sidebar-link"
+                                    onClick={() => this.openModalForAction('group-settings')}
+                                >
+                                    Group Settings
+                                    {pendingGroupCount > 0 && (
+                                        <span className="sidebar-link-counter" aria-label="Pending group requests">
+                                            {pendingGroupCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </li>
                         </ul>
                     </nav>
 
@@ -140,6 +573,61 @@ export class FIUBoardView extends Component<Props, State> {
                         })}
                     </div>
                 </aside>
+
+                {modalOpen && (
+                    <div
+                        className="sidebar-modal-overlay"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Close modal overlay"
+                        onClick={this.closeModal}
+                        onKeyDown={(event) => {
+                            if (event.target !== event.currentTarget) return
+                            if (event.key === 'Enter' || event.key === ' ') {
+                                this.closeModal()
+                            }
+                        }}
+                    >
+                        <section
+                            className="sidebar-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="sidebar-modal-title"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <button
+                                type="button"
+                                className="sidebar-modal-close"
+                                aria-label="Close modal"
+                                onClick={this.closeModal}
+                            >
+                                ✕
+                            </button>
+                            <h2 id="sidebar-modal-title">{this.getModalTitle(activeModalAction)}</h2>
+                            {activeModalAction === 'board-management' ? (
+                                this.renderBoardManagement()
+                            ) : activeModalAction === 'group-settings' ? (
+                                <FIUGroupView
+                                    groups={this.props.groups}
+                                    boards={this.props.boards}
+                                    groupMembers={this.props.groupMembers}
+                                    pendingJoinRequests={this.props.pendingGroupJoinRequests}
+                                    onCreateGroup={this.props.onCreateGroup}
+                                    onDeleteGroup={this.props.onDeleteGroup}
+                                    onRenameGroup={this.props.onRenameGroup}
+                                    onUpdateGroupBoards={this.props.onUpdateGroupBoards}
+                                    onJoinGroup={this.props.onJoinGroup}
+                                    onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
+                                />
+                            ) : (
+                                <p>
+                                    This section is ready for your next feature. Add controls and content
+                                    for this menu here.
+                                </p>
+                            )}
+                        </section>
+                    </div>
+                )}
 
                 {/* Account menu (top-right overlay) */}
                 <FIUAccountView userEmail={userEmail} onSignOut={onSignOut} />
