@@ -1,8 +1,26 @@
+/*
+    Responsibilities:
+    - UI accessors for location
+            records:
+                - deviceID
+                - Lat, lon
+                - Timestamp label
+            records:
+                - deviceID
+                - Lat, lon
+                - Timestamp label
+      Retrieves location data from
+        - database for user's boards
+*/
+
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { FIUModel } from './FIUModel'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { supabase } from '../services/supabaseClient'
+
+
+
 
 /** UI-friendly model for a single device location record. */
 export class FIULocationRecordModel extends FIUModel<FIULocationRecordEntity> {

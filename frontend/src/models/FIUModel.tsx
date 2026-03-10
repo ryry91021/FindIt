@@ -1,3 +1,11 @@
+/*
+    Responsibilities:
+        - Provides generic wrapper for entities
+        - Provides getter for entities
+        - getEntity()
+*/
+
+
 /** Generic model wrapper that exposes a typed entity. */
 export abstract class FIUModel<T> {
     protected entity: T

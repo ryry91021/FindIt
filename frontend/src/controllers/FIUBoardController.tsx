@@ -1,9 +1,28 @@
+/*
+    Responsibilities:
+    - Loads latest boards and
+            their respective locations
+
+    - Handles cancelled
+            requests when loading
+
+    - Provide boards & location
+            for the map
+*/
+
 import { Component } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { authService } from '../services/authService'
 import { FIUBoardModel } from '../models/FIUBoardModel'
+import { FIUGroupModel } from '../models/FIUGroupModel'
 import { FIUBoardView } from '../views/FIUBoardView'
+import type { SidebarModalAction } from '../views/FIUBoardView'
+import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
+import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
+import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
+
+
 
 interface Props {
     userEmail: string | undefined
@@ -14,6 +33,9 @@ interface Props {
 type State = {
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
+    groups: FIUGroupEntity[]
+    groupMembers: FIUGroupMemberEntity[]
+    pendingGroupJoinRequests: FIUGroupJoinRequestEntity[]
     error: string | null
 }
 
@@ -25,6 +47,9 @@ export class FIUBoardController extends Component<Props, State> {
     state: State = {
         boards: [],
         locations: [],
+        groups: [],
+        groupMembers: [],
+        pendingGroupJoinRequests: [],
         error: null,
     }
 
@@ -57,6 +82,13 @@ export class FIUBoardController extends Component<Props, State> {
             return await FIUBoardModel.loadBoardsAndLatestLocations(userId)
         } catch (err) {
             console.error('FIUBoardController.loadBoardsAndLatestLocations failed', err)
+            // In development, bubble up the real error to make RLS/schema issues debuggable.
+            if (import.meta.env.MODE === 'development') {
+                if (err instanceof Error) throw err
+                throw new Error('Unable to load dashboard data (unknown error).')
+            }
+
+            // In test/production, keep the UI-facing message stable.
             throw new Error('Unable to load dashboard data. Please try again.')
         }
     }
@@ -67,10 +99,23 @@ export class FIUBoardController extends Component<Props, State> {
 
         try {
             this.setState({ error: null })
-            const res = await this.loadBoardsAndLatestLocations(this.props.userId)
+            const [res, groups, pendingGroupJoinRequests] = await Promise.all([
+                this.loadBoardsAndLatestLocations(this.props.userId),
+                FIUGroupModel.fetchGroupsForUser(this.props.userId),
+                FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+            ])
+            const groupMembers = await FIUGroupModel.fetchMembersForGroups(
+                groups.map((group) => group.id)
+            )
             if (this.cancelled) return
             if (this.requestSeq !== mySeq) return
-            this.setState({ boards: res.boards, locations: res.locations })
+            this.setState({
+                boards: res.boards,
+                locations: res.locations,
+                groups,
+                groupMembers,
+                pendingGroupJoinRequests,
+            })
         } catch (err) {
             if (this.cancelled) return
             if (this.requestSeq !== mySeq) return
@@ -82,8 +127,97 @@ export class FIUBoardController extends Component<Props, State> {
                         : 'Something went wrong while loading your boards. Please try again.',
                 boards: [],
                 locations: [],
+                groups: [],
+                groupMembers: [],
+                pendingGroupJoinRequests: [],
             })
         }
+    }
+
+    private async refreshBoardsAndGroups(): Promise<void> {
+        const [res, groups, pendingGroupJoinRequests] = await Promise.all([
+            this.loadBoardsAndLatestLocations(this.props.userId),
+            FIUGroupModel.fetchGroupsForUser(this.props.userId),
+            FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+        ])
+        const groupMembers = await FIUGroupModel.fetchMembersForGroups(
+            groups.map((group) => group.id)
+        )
+
+        this.setState({
+            boards: res.boards,
+            locations: res.locations,
+            groups,
+            groupMembers,
+            pendingGroupJoinRequests,
+        })
+    }
+
+    /** Creates a new board and refreshes dashboard data. */
+    private handleCreateBoard = async (displayName: string, deviceEui: string): Promise<void> => {
+        await FIUBoardModel.createBoard(displayName, deviceEui, this.props.userId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    /** Deletes a board and refreshes dashboard data. */
+    private handleDeleteBoard = async (boardId: string): Promise<void> => {
+        await FIUBoardModel.deleteBoard(boardId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    /** Renames a board and refreshes dashboard data. */
+    private handleRenameBoard = async (boardId: string, newName: string): Promise<void> => {
+        await FIUBoardModel.renameBoard(boardId, newName)
+        await this.refreshBoardsAndGroups()
+    }
+
+    /** Adds a board to a selected group and refreshes dashboard data. */
+    private handleAddBoardToGroup = async (boardId: string, groupId: string): Promise<void> => {
+        await FIUBoardModel.assignBoardToGroup(boardId, groupId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleCreateGroup = async (name: string, boardIds: string[]): Promise<void> => {
+        await FIUGroupModel.createGroup(name, boardIds, this.props.userId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleDeleteGroup = async (groupId: string): Promise<void> => {
+        await FIUGroupModel.deleteGroup(groupId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleRenameGroup = async (groupId: string, name: string): Promise<void> => {
+        await FIUGroupModel.renameGroup(groupId, name)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleUpdateGroupBoards = async (
+        groupId: string,
+        boardIds: string[]
+    ): Promise<void> => {
+        await FIUBoardModel.setBoardsForGroup(
+            groupId,
+            boardIds,
+            this.state.boards.map((board) => board.id),
+            this.state.boards
+                .filter((board) => board.group_id === groupId)
+                .map((board) => board.id)
+        )
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleJoinGroup = async (groupId: string): Promise<void> => {
+        await FIUGroupModel.requestJoinGroup(groupId, this.props.userId)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleRespondToGroupJoinRequest = async (
+        requestId: string,
+        accept: boolean
+    ): Promise<void> => {
+        await FIUGroupModel.respondToJoinRequest(requestId, accept, this.props.userId)
+        await this.refreshBoardsAndGroups()
     }
 
     /** Signs out the user and notifies the app shell. */
@@ -92,17 +226,37 @@ export class FIUBoardController extends Component<Props, State> {
         this.props.onLogout()
     }
 
+    /** Receives sidebar modal actions for future orchestration hooks. */
+    private handleSidebarAction = (action: SidebarModalAction): void => {
+        void action
+        // Intentionally no-op for now; controller owns this callback for future wiring.
+    }
+
     render() {
         const { userEmail } = this.props
-        const { boards, locations, error } = this.state
+        const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, error } = this.state
 
         return (
             <FIUBoardView
                 userEmail={userEmail}
                 boards={boards}
                 locations={locations}
+                groups={groups}
+                groupMembers={groupMembers}
                 error={error}
+                pendingGroupJoinRequests={pendingGroupJoinRequests}
                 onSignOut={this.handleSignOut}
+                onSidebarAction={this.handleSidebarAction}
+                onCreateBoard={this.handleCreateBoard}
+                onDeleteBoard={this.handleDeleteBoard}
+                onRenameBoard={this.handleRenameBoard}
+                onAddBoardToGroup={this.handleAddBoardToGroup}
+                onCreateGroup={this.handleCreateGroup}
+                onDeleteGroup={this.handleDeleteGroup}
+                onRenameGroup={this.handleRenameGroup}
+                onUpdateGroupBoards={this.handleUpdateGroupBoards}
+                onJoinGroup={this.handleJoinGroup}
+                onRespondToGroupJoinRequest={this.handleRespondToGroupJoinRequest}
             />
         )
     }

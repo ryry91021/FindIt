@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../../src/models/FIUBoardModel', () => ({
   FIUBoardModel: {
     loadBoardsAndLatestLocations: vi.fn(),
+    createBoard: vi.fn(),
+    deleteBoard: vi.fn(),
+    renameBoard: vi.fn(),
+    assignBoardToGroup: vi.fn(),
+  },
+}))
+
+vi.mock('../../src/models/FIUGroupModel', () => ({
+  FIUGroupModel: {
+    fetchGroupsForUser: vi.fn(),
   },
 }))
 
@@ -13,8 +23,8 @@ describe('FIUBoardController', () => {
 
     ;(FIUBoardModel.loadBoardsAndLatestLocations as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       boards: [
-        { id: 'd1', display_name: 'Board 1' },
-        { id: 'd2', display_name: 'Board 2' },
+        { id: 'd1', display_name: 'Board 1', device_eui: 'EUI-1' },
+        { id: 'd2', display_name: 'Board 2', device_eui: 'EUI-2' },
       ],
       locations: [
         {
