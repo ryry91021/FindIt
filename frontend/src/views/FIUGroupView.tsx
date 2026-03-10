@@ -55,14 +55,17 @@ export class FIUGroupView extends Component<Props, State> {
         success: null,
     }
 
+    /** Clears group-management success and error feedback messages. */
     private clearFeedback = () => {
         this.setState({ error: null, success: null })
     }
 
+    /** Toggles the busy/locked state across group action controls. */
     private setBusy = (busy: boolean) => {
         this.setState({ busy })
     }
 
+    /** Opens the create-group modal and resets create form inputs. */
     private openCreateModal = () => {
         this.clearFeedback()
         this.setState({
@@ -72,6 +75,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Closes the create-group modal and clears create input state. */
     private closeCreateModal = () => {
         this.setState({
             createModalOpen: false,
@@ -80,6 +84,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Opens the join-group modal and resets the UUID input. */
     private openJoinModal = () => {
         this.clearFeedback()
         this.setState({
@@ -88,6 +93,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Closes the join-group modal and clears the UUID input. */
     private closeJoinModal = () => {
         this.setState({
             joinModalOpen: false,
@@ -95,6 +101,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Opens edit-group modal and preloads currently assigned boards. */
     private openEditModal = (group: FIUGroupEntity) => {
         this.clearFeedback()
         const editSelectedBoardIds = this.props.boards
@@ -110,6 +117,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Closes edit-group modal and clears edit-form state. */
     private closeEditModal = () => {
         this.setState({
             editModalOpen: false,
@@ -120,6 +128,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Toggles board selection in the create-group board picker. */
     private toggleBoardSelection = (boardId: string) => {
         this.setState((prev) => {
             const next = new Set(prev.selectedBoardIds)
@@ -129,6 +138,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Toggles board selection in the edit-group board picker. */
     private toggleEditBoardSelection = (boardId: string) => {
         this.setState((prev) => {
             const next = new Set(prev.editSelectedBoardIds)
@@ -141,6 +151,7 @@ export class FIUGroupView extends Component<Props, State> {
         })
     }
 
+    /** Creates a group using current form values and selected boards. */
     private handleCreateGroup = async () => {
         const name = this.state.createName.trim()
         if (!name) return
@@ -163,6 +174,7 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Submits a join request for the entered group UUID. */
     private handleJoinGroup = async () => {
         const groupId = this.state.joinGroupId.trim()
         if (!groupId) return
@@ -182,6 +194,7 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Saves group name and board assignment edits for a selected group. */
     private handleRenameGroup = async () => {
         const groupId = this.state.editGroupId
         const name = this.state.editName.trim()
@@ -208,6 +221,7 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Deletes a group after user confirmation from the remove dialog. */
     private handleDeleteGroup = async (groupId: string) => {
         try {
             this.setBusy(true)
@@ -227,6 +241,7 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Accepts or declines a pending join request for a group. */
     private handleRespondToRequest = async (requestId: string, accept: boolean) => {
         try {
             this.setBusy(true)
@@ -242,6 +257,7 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Copies a group UUID to clipboard for sharing. */
     private handleCopyUuid = async (groupId: string) => {
         try {
             await navigator.clipboard.writeText(groupId)
@@ -251,14 +267,17 @@ export class FIUGroupView extends Component<Props, State> {
         }
     }
 
+    /** Opens group removal confirmation modal for the selected group. */
     private openGroupDeleteConfirm = (groupId: string) => {
         this.setState({ confirmDeleteGroupId: groupId })
     }
 
+    /** Closes group removal confirmation modal. */
     private closeGroupDeleteConfirm = () => {
         this.setState({ confirmDeleteGroupId: null })
     }
 
+    /** Renders group list, actions, and modal dialogs for group workflows. */
     render() {
         const { groups, boards, groupMembers, pendingJoinRequests } = this.props
         const {

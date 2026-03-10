@@ -90,14 +90,17 @@ export class FIUBoardView extends Component<Props, State> {
     private mapContainerRef = createRef<HTMLDivElement>()
     private mapView = new FIUMapView()
 
+    /** Opens or closes the left sidebar drawer. */
     private toggleSidebar = () => {
         this.setState((prev) => ({ sidebarOpen: !prev.sidebarOpen }))
     }
 
+    /** Closes the left sidebar drawer. */
     private closeSidebar = () => {
         this.setState({ sidebarOpen: false })
     }
 
+    /** Opens the sidebar modal for a selected menu action. */
     private openModalForAction = (action: SidebarModalAction) => {
         this.props.onSidebarAction(action)
         this.setState({
@@ -107,6 +110,7 @@ export class FIUBoardView extends Component<Props, State> {
         })
     }
 
+    /** Closes the active sidebar modal and clears transient edit state. */
     private closeModal = () => {
         this.setState({
             modalOpen: false,
@@ -122,6 +126,7 @@ export class FIUBoardView extends Component<Props, State> {
         })
     }
 
+    /** Opens the board edit popup for the selected board row. */
     private openEditPopup = (board: FIUBoardEntity) => {
         this.setState({
             editPopupOpen: true,
@@ -134,6 +139,7 @@ export class FIUBoardView extends Component<Props, State> {
         })
     }
 
+    /** Closes the board edit popup and resets edit-specific fields. */
     private closeEditPopup = () => {
         this.setState({
             editPopupOpen: false,
@@ -146,14 +152,17 @@ export class FIUBoardView extends Component<Props, State> {
         })
     }
 
+    /** Sets the busy/locked state for board action buttons. */
     private setBusy = (busy: boolean) => {
         this.setState({ boardActionBusy: busy })
     }
 
+    /** Clears board action success/error messages. */
     private clearMessages = () => {
         this.setState({ boardActionError: null, boardActionSuccess: null })
     }
 
+    /** Creates a board using the current create form values. */
     private handleCreateBoard = async () => {
         const name = this.state.createBoardName.trim()
         const eui = this.state.createBoardEui.trim()
@@ -177,6 +186,7 @@ export class FIUBoardView extends Component<Props, State> {
         }
     }
 
+    /** Removes the selected board from the current user's board list. */
     private handleDeleteBoard = async () => {
         const boardId = this.state.selectedBoardIdForRemoval
         if (!boardId) return
@@ -199,15 +209,18 @@ export class FIUBoardView extends Component<Props, State> {
         }
     }
 
+    /** Opens confirmation modal before deleting a board. */
     private openBoardDeleteConfirm = () => {
         if (!this.state.selectedBoardIdForRemoval) return
         this.setState({ confirmBoardDeleteOpen: true })
     }
 
+    /** Closes the board deletion confirmation modal. */
     private closeBoardDeleteConfirm = () => {
         this.setState({ confirmBoardDeleteOpen: false })
     }
 
+    /** Submits board rename and optional group assignment updates. */
     private handleEditSubmit = async () => {
         const boardId = this.state.editBoardId
         const newName = this.state.editBoardName.trim()
@@ -234,6 +247,7 @@ export class FIUBoardView extends Component<Props, State> {
         }
     }
 
+    /** Renders board-management controls and board edit/remove dialogs. */
     private renderBoardManagement() {
         const {
             boards,
@@ -430,12 +444,14 @@ export class FIUBoardView extends Component<Props, State> {
         )
     }
 
+    /** Handles global Escape key for closing the active sidebar modal. */
     private onWindowKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Escape' && this.state.modalOpen) {
             this.closeModal()
         }
     }
 
+    /** Returns the title for the currently active sidebar modal action. */
     private getModalTitle(action: SidebarModalAction | null): string {
         if (action === 'board-management') return 'Board Management'
         if (action === 'geofence-management') return 'Geofence Management'
@@ -443,6 +459,7 @@ export class FIUBoardView extends Component<Props, State> {
         return 'Menu'
     }
 
+    /** Initializes map view and event listeners when dashboard mounts. */
     componentDidMount(): void {
         const container = this.mapContainerRef.current
         if (container) {
@@ -453,10 +470,12 @@ export class FIUBoardView extends Component<Props, State> {
         window.addEventListener('keydown', this.onWindowKeyDown)
     }
 
+    /** Removes global listeners when dashboard view unmounts. */
     componentWillUnmount(): void {
         window.removeEventListener('keydown', this.onWindowKeyDown)
     }
 
+    /** Re-renders map markers when boards or locations props change. */
     componentDidUpdate(prevProps: Props): void {
         if (prevProps.boards !== this.props.boards || prevProps.locations !== this.props.locations) {
             this.mapView.render(this.props.boards, this.props.locations)
