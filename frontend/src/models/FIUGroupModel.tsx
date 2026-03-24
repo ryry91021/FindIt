@@ -6,7 +6,6 @@ import type {
 } from '../entities/FIUGroupMembershipEntities'
 import { supabase } from '../services/supabaseClient'
 import { FIUModel } from './FIUModel'
-import { FIUProfileModel } from './FIUProfileModel'
 
 export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 
@@ -475,15 +474,6 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             labelByUserId.set(id, `No name set (${id.slice(0, 8)})`)
         })
 
-<<<<<<< HEAD
-        try {
-            const profileLabels = await FIUProfileModel.fetchLabelsForUsers(uniqueUserIds, client)
-            profileLabels.forEach((label, userId) => {
-                labelByUserId.set(userId, label)
-            })
-        } catch (err) {
-            console.warn('FIUGroupModel.fetchMembersForGroups: profiles lookup failed', err)
-=======
         if (uniqueUserIds.length > 0) {
             // Your schema defines only: profiles(id, display_name, created_at, updated_at)
             // Keep the query minimal to avoid 400s for missing columns.
@@ -530,7 +520,6 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
                 const label = item.display_name?.trim()
                 if (label) labelByUserId.set(item.id, label)
             })
->>>>>>> development
         }
 
         return rows.map((row) => ({
