@@ -56,16 +56,12 @@ interface Props {
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToGroupJoinRequest: (requestId: string, accept: boolean) => Promise<void>
-<<<<<<< HEAD
-    onDisplayNameUpdated?: (nextDisplayName: string) => void
-=======
     onCreateGeofence: (name: string, centerLat: number, centerLon: number, radiusMeters: number) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
         patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
->>>>>>> development
 }
 type State = {
     sidebarOpen: boolean
