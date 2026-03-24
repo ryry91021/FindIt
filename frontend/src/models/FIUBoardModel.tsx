@@ -28,19 +28,6 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         return this.entity.device_eui
     }
 
-    private static async resolveUserId(
-        userId?: string,
-        client: SupabaseClient = supabase
-    ): Promise<string | undefined> {
-        if (userId) return userId
-        const { data, error } = await client.auth.getSession()
-        if (error) {
-            console.error('FIUBoardModel.resolveUserId: auth.getSession failed', error)
-            throw new Error('Unable to resolve user identity.')
-        }
-        return data.session?.user?.id
-    }
-
     /** Creates a board/device for the authenticated user. */
     static async createBoard(
         displayName: string,
@@ -48,7 +35,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<void> {
-        const ownerId = await FIUBoardModel.resolveUserId(userId, client)
+        const ownerId = await this.resolveUserId(userId, client)
         if (!ownerId) throw new Error('Unable to create board without a user session.')
 
         const { error } = await client.from('devices').insert({
@@ -114,36 +101,34 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<FIUBoardEntity[]> {
-        const isDev = import.meta.env.MODE === 'development'
-        const debug = isDev
-
-        const formatSupabaseErr = (err: unknown) => {
-            if (!err) return 'Unknown error'
-            if (err instanceof Error) return err.message
-            try {
-                return JSON.stringify(err)
-            } catch {
-                return String(err)
-            }
-        }
-
         let resolvedUserId = userId
 
         // Ensure Supabase auth state is hydrated before any RLS-protected queries.
-        // Without this, queries may silently return 0 rows in some cases.
-        // For external clients (tests), only hydrate when we need the user id.
-        if (client === supabase || !resolvedUserId) {
+        // In dev (React StrictMode) the caller-provided `userId` can temporarily differ
+        // from the current Supabase session user; prefer the session user id when available.
+        if (client === supabase) {
             const { data: sessionData, error: sessionErr } = await client.auth.getSession()
             if (sessionErr) {
-                console.error('FIUBoardModel.fetchBoardsForUser: auth.getSession failed', sessionErr)
-                throw new Error(
-                    isDev
-                        ? `Unable to load boards (auth session): ${formatSupabaseErr(sessionErr)}`
-                        : 'Unable to load boards.'
-                )
+                console.error('FIUBoardModel.fetchBoardsForUser: auth.getSession failed', {
+                    error: sessionErr,
+                    errorText: this.formatSupabaseError(sessionErr),
+                })
+                throw new Error('Unable to load boards.')
             }
 
-            if (!resolvedUserId) resolvedUserId = sessionData.session?.user?.id
+            const sessionUserId = sessionData.session?.user?.id
+            if (sessionUserId) resolvedUserId = sessionUserId
+        } else if (!resolvedUserId) {
+            // For external clients (tests), only hydrate when we need the user id.
+            const { data: sessionData, error: sessionErr } = await client.auth.getSession()
+            if (sessionErr) {
+                console.error('FIUBoardModel.fetchBoardsForUser: auth.getSession failed', {
+                    error: sessionErr,
+                    errorText: this.formatSupabaseError(sessionErr),
+                })
+                throw new Error('Unable to load boards.')
+            }
+            resolvedUserId = sessionData.session?.user?.id
         }
 
         if (!resolvedUserId) return []
@@ -156,16 +141,11 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
             .order('created_at', { ascending: false })
 
         if (accessibleErr) {
-            console.error('FIUBoardModel.fetchBoardsForUser: devices query failed', accessibleErr)
-            throw new Error(
-                isDev
-                    ? `Unable to load boards (devices select): ${formatSupabaseErr(accessibleErr)}`
-                    : 'Unable to load boards.'
-            )
-        }
-
-        if (debug) {
-            console.info('[FIUBoardModel] devices accessible:', (accessibleDevices ?? []).length)
+            console.error('FIUBoardModel.fetchBoardsForUser: devices query failed', {
+                error: accessibleErr,
+                errorText: this.formatSupabaseError(accessibleErr),
+            })
+            throw new Error('Unable to load boards.')
         }
 
         const byId = new Map<string, FIUBoardEntity>()
@@ -190,10 +170,6 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
                     .map((row) => (row as { group_id?: string | null }).group_id)
                     .filter((id): id is string => typeof id === 'string' && id.length > 0)
                 groupIds = memberGroupIds
-
-                if (debug) {
-                    console.info('[FIUBoardModel] group_members groups:', memberGroupIds.length)
-                }
             }
         } catch (e) {
             console.warn('FIUBoardModel.fetchBoardsForUser: group_members lookup threw', e)
@@ -214,10 +190,6 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
                     .map((row) => (row as { id?: string | null }).id)
                     .filter((id): id is string => typeof id === 'string' && id.length > 0)
                 groupIds = Array.from(new Set([...groupIds, ...ownedGroupIds]))
-
-                if (debug) {
-                    console.info('[FIUBoardModel] groups created_by:', ownedGroupIds.length)
-                }
             }
         } catch (e) {
             console.warn('FIUBoardModel.fetchBoardsForUser: groups lookup threw', e)
@@ -236,10 +208,6 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
                 memberDeviceIds = (memberRows ?? [])
                     .map((row) => (row as { device_id?: string | null }).device_id)
                     .filter((id): id is string => typeof id === 'string' && id.length > 0)
-
-                if (debug) {
-                    console.info('[FIUBoardModel] device_members devices:', memberDeviceIds.length)
-                }
             }
         } catch (e) {
             console.warn('FIUBoardModel.fetchBoardsForUser: device_members lookup threw', e)
@@ -272,15 +240,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
                 ;((groupData ?? []) as FIUBoardEntity[]).forEach((d) => {
                     if (d?.id) byId.set(d.id, d)
                 })
-
-                if (debug) {
-                    console.info('[FIUBoardModel] devices from groups:', (groupData ?? []).length)
-                }
             }
-        }
-
-        if (debug) {
-            console.info('[FIUBoardModel] boards returned:', byId.size)
         }
 
         return Array.from(byId.values())

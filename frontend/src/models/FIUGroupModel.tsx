@@ -12,6 +12,26 @@ export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 
 /** Model wrapper for group entities and group data access methods. */
 export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
+    private static joinRequestsTableMissing: boolean | null = null
+
+    private static isMissingTableError(error: unknown, tableName: string): boolean {
+        if (!error || typeof error !== 'object') return false
+        const err = error as { code?: unknown; message?: unknown }
+        if (err.code !== 'PGRST205') return false
+        return typeof err.message === 'string' && err.message.includes(`public.${tableName}`)
+    }
+
+    private static isMissingColumnError(error: unknown): boolean {
+        if (!error || typeof error !== 'object') return false
+        const err = error as { code?: unknown; message?: unknown }
+        if (err.code === '42703') return true
+        return (
+            typeof err.message === 'string' &&
+            err.message.toLowerCase().includes('column') &&
+            err.message.toLowerCase().includes('does not exist')
+        )
+    }
+
     get id() {
         return this.entity.id
     }
@@ -20,25 +40,12 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         return this.entity.name
     }
 
-    private static async resolveUserId(
-        userId?: string,
-        client: SupabaseClient = supabase
-    ): Promise<string | undefined> {
-        if (userId) return userId
-        const { data, error } = await client.auth.getSession()
-        if (error) {
-            console.error('FIUGroupModel.resolveUserId: auth.getSession failed', error)
-            throw new Error('Unable to resolve user identity.')
-        }
-        return data.session?.user?.id
-    }
-
     /** Fetches groups available to the user (owned + member groups). */
     static async fetchGroupsForUser(
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<FIUGroupEntity[]> {
-        const resolvedUserId = await FIUGroupModel.resolveUserId(userId, client)
+        const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) return []
 
         const byId = new Map<string, FIUGroupEntity>()
@@ -108,7 +115,7 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<FIUGroupEntity> {
-        const resolvedUserId = await FIUGroupModel.resolveUserId(userId, client)
+        const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) throw new Error('Unable to create group without a user session.')
 
         const insertVariants: Array<Record<string, unknown>> = [
@@ -211,16 +218,22 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             )
         }
 
-        const { error: requestsDeleteError } = await client
-            .from('group_join_requests')
-            .delete()
-            .eq('group_id', groupId)
+        if (this.joinRequestsTableMissing !== true) {
+            const { error: requestsDeleteError } = await client
+                .from('group_join_requests')
+                .delete()
+                .eq('group_id', groupId)
 
-        if (requestsDeleteError) {
-            console.warn(
-                'FIUGroupModel.deleteGroup: deleting join requests failed',
-                requestsDeleteError
-            )
+            if (requestsDeleteError) {
+                if (this.isMissingTableError(requestsDeleteError, 'group_join_requests')) {
+                    this.joinRequestsTableMissing = true
+                } else {
+                    console.warn(
+                        'FIUGroupModel.deleteGroup: deleting join requests failed',
+                        requestsDeleteError
+                    )
+                }
+            }
         }
 
         const { error: memberDeleteError } = await client
@@ -245,7 +258,11 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<void> {
-        const resolvedUserId = await FIUGroupModel.resolveUserId(userId, client)
+        if (this.joinRequestsTableMissing === true) {
+            throw new Error('Group join requests are not enabled (missing `group_join_requests` table).')
+        }
+
+        const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) throw new Error('Unable to request group join without a user session.')
 
         const { data: groupExists, error: existsError } = await client
@@ -274,13 +291,18 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             throw new Error('You are already a member of this group.')
         }
 
-        const { data: pendingRequest } = await client
+        const { data: pendingRequest, error: pendingErr } = await client
             .from('group_join_requests')
             .select('id')
             .eq('group_id', groupId)
             .eq('requester_id', resolvedUserId)
             .eq('status', 'pending')
             .maybeSingle()
+
+        if (pendingErr && this.isMissingTableError(pendingErr, 'group_join_requests')) {
+            this.joinRequestsTableMissing = true
+            throw new Error('Group join requests are not enabled (missing `group_join_requests` table).')
+        }
 
         if (pendingRequest) {
             throw new Error('You already have a pending request for this group.')
@@ -293,6 +315,10 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         })
 
         if (error) {
+            if (this.isMissingTableError(error, 'group_join_requests')) {
+                this.joinRequestsTableMissing = true
+                throw new Error('Group join requests are not enabled (missing `group_join_requests` table).')
+            }
             console.error('FIUGroupModel.requestJoinGroup: insert failed', error)
             throw new Error('Unable to send join request.')
         }
@@ -303,7 +329,9 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<FIUGroupJoinRequestEntity[]> {
-        const resolvedUserId = await FIUGroupModel.resolveUserId(userId, client)
+        if (this.joinRequestsTableMissing === true) return []
+
+        const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) return []
 
         const { data: ownedGroups, error: ownedErr } = await client
@@ -329,6 +357,10 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             .eq('status', 'pending')
 
         if (error) {
+            if (this.isMissingTableError(error, 'group_join_requests')) {
+                this.joinRequestsTableMissing = true
+                return []
+            }
             console.warn('FIUGroupModel.fetchPendingJoinRequests: query failed', error)
             return []
         }
@@ -343,7 +375,11 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         userId?: string,
         client: SupabaseClient = supabase
     ): Promise<void> {
-        const resolvedUserId = await FIUGroupModel.resolveUserId(userId, client)
+        if (this.joinRequestsTableMissing === true) {
+            throw new Error('Group join requests are not enabled.')
+        }
+
+        const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) throw new Error('Unable to process request without a user session.')
 
         const { data: request, error: requestErr } = await client
@@ -353,6 +389,10 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             .maybeSingle()
 
         if (requestErr) {
+            if (this.isMissingTableError(requestErr, 'group_join_requests')) {
+                this.joinRequestsTableMissing = true
+                throw new Error('Group join requests are not enabled.')
+            }
             console.error('FIUGroupModel.respondToJoinRequest: request lookup failed', requestErr)
             throw new Error('Unable to load join request.')
         }
@@ -384,6 +424,10 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             .eq('id', requestId)
 
         if (updateErr) {
+            if (this.isMissingTableError(updateErr, 'group_join_requests')) {
+                this.joinRequestsTableMissing = true
+                throw new Error('Group join requests are not enabled.')
+            }
             console.error('FIUGroupModel.respondToJoinRequest: status update failed', updateErr)
             throw new Error('Unable to update join request.')
         }
@@ -431,6 +475,7 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             labelByUserId.set(id, `No name set (${id.slice(0, 8)})`)
         })
 
+<<<<<<< HEAD
         try {
             const profileLabels = await FIUProfileModel.fetchLabelsForUsers(uniqueUserIds, client)
             profileLabels.forEach((label, userId) => {
@@ -438,6 +483,54 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             })
         } catch (err) {
             console.warn('FIUGroupModel.fetchMembersForGroups: profiles lookup failed', err)
+=======
+        if (uniqueUserIds.length > 0) {
+            // Your schema defines only: profiles(id, display_name, created_at, updated_at)
+            // Keep the query minimal to avoid 400s for missing columns.
+            const selectVariants = ['id, display_name', 'id']
+
+            let profiles: unknown[] | null = null
+            let lastProfileError: unknown = null
+
+            for (const select of selectVariants) {
+                const { data, error: profileErr } = await client
+                    .from('profiles')
+                    .select(select)
+                    .in('id', uniqueUserIds)
+
+                if (!profileErr) {
+                    profiles = (data ?? []) as unknown[]
+                    lastProfileError = null
+                    break
+                }
+
+                lastProfileError = profileErr
+
+                if (this.isMissingTableError(profileErr, 'profiles')) {
+                    profiles = []
+                    lastProfileError = null
+                    break
+                }
+
+                if (!this.isMissingColumnError(profileErr)) {
+                    break
+                }
+            }
+
+            if (lastProfileError) {
+                console.warn('FIUGroupModel.fetchMembersForGroups: profiles query failed', lastProfileError)
+            }
+
+            ;(profiles ?? []).forEach((profile) => {
+                const item = profile as {
+                    id?: string | null
+                    display_name?: string | null
+                }
+                if (!item.id) return
+                const label = item.display_name?.trim()
+                if (label) labelByUserId.set(item.id, label)
+            })
+>>>>>>> development
         }
 
         return rows.map((row) => ({
