@@ -11,13 +11,16 @@
             sign-out
 */
 
-import { Component, createRef } from 'react'
+import { createRef } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
+import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
 import { FIUMapView } from './FIUMapView'
 import { FIUAccountView } from './FIUAccountView'
+import { FIUGeofenceView } from './FIUGeofenceView'
 import { FIUGroupView } from './FIUGroupView'
+import { FIUView } from './FIUView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
@@ -31,9 +34,11 @@ export type SidebarModalAction =
     | 'group-settings'
 
 interface Props {
+    userId?: string
     userEmail?: string
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
+    geofences: FIUGeofenceEntity[]
     groups: FIUGroupEntity[]
     groupMembers: FIUGroupMemberEntity[]
     pendingGroupJoinRequests: FIUGroupJoinRequestEntity[]
@@ -50,6 +55,12 @@ interface Props {
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToGroupJoinRequest: (requestId: string, accept: boolean) => Promise<void>
+    onCreateGeofence: (name: string, centerLat: number, centerLon: number, radiusMeters: number) => Promise<void>
+    onUpdateGeofence: (
+        geofenceId: string,
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
+    ) => Promise<void>
+    onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
 }
 type State = {
     sidebarOpen: boolean
@@ -73,7 +84,7 @@ type State = {
  * Pure presentation of the dashboard.
  * Renders based on props (no DB access / request flow).
  */
-export class FIUBoardView extends Component<Props, State> {
+export class FIUBoardView extends FIUView<Props, State> {
     state: State = {
         sidebarOpen: false,
         modalOpen: false,
@@ -184,7 +195,7 @@ export class FIUBoardView extends Component<Props, State> {
             })
         } catch (err) {
             this.setState({
-                boardActionError: err instanceof Error ? err.message : 'Unable to add board.',
+                boardActionError: this.getErrorMessage(err, 'Unable to add board.'),
             })
         } finally {
             this.setBusy(false)
@@ -207,7 +218,7 @@ export class FIUBoardView extends Component<Props, State> {
             })
         } catch (err) {
             this.setState({
-                boardActionError: err instanceof Error ? err.message : 'Unable to remove board.',
+                boardActionError: this.getErrorMessage(err, 'Unable to remove board.'),
             })
         } finally {
             this.setBusy(false)
@@ -245,7 +256,7 @@ export class FIUBoardView extends Component<Props, State> {
             this.closeEditPopup()
         } catch (err) {
             this.setState({
-                boardActionError: err instanceof Error ? err.message : 'Unable to update board.',
+                boardActionError: this.getErrorMessage(err, 'Unable to update board.'),
             })
         } finally {
             this.setBusy(false)
@@ -454,11 +465,13 @@ export class FIUBoardView extends Component<Props, State> {
         }
 
         this.mapView.render(this.props.boards, this.props.locations)
+        this.mapView.renderGeofences(this.props.geofences)
         window.addEventListener('keydown', this.onWindowKeyDown)
     }
 
     /** Removes global listeners when dashboard view unmounts. */
     componentWillUnmount(): void {
+        this.mapView.destroy()
         window.removeEventListener('keydown', this.onWindowKeyDown)
     }
 
@@ -466,6 +479,10 @@ export class FIUBoardView extends Component<Props, State> {
     componentDidUpdate(prevProps: Props): void {
         if (prevProps.boards !== this.props.boards || prevProps.locations !== this.props.locations) {
             this.mapView.render(this.props.boards, this.props.locations)
+        }
+
+        if (prevProps.geofences !== this.props.geofences) {
+            this.mapView.renderGeofences(this.props.geofences)
         }
     }
 
@@ -612,6 +629,13 @@ export class FIUBoardView extends Component<Props, State> {
                         <h2 id="sidebar-modal-title">{this.getModalTitle(activeModalAction)}</h2>
                         {activeModalAction === 'board-management' ? (
                             this.renderBoardManagement()
+                        ) : activeModalAction === 'geofence-management' ? (
+                            <FIUGeofenceView
+                                geofences={this.props.geofences}
+                                onCreateGeofence={this.props.onCreateGeofence}
+                                onUpdateGeofence={this.props.onUpdateGeofence}
+                                onToggleGeofenceEnabled={this.props.onToggleGeofenceEnabled}
+                            />
                         ) : activeModalAction === 'group-settings' ? (
                             <FIUGroupView
                                 groups={this.props.groups}

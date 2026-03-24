@@ -1,4 +1,4 @@
-import { Component } from 'react'
+import { FIUView } from './FIUView'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
@@ -38,7 +38,7 @@ type State = {
 }
 
 /** Presentation-only view for group settings content. */
-export class FIUGroupView extends Component<Props, State> {
+export class FIUGroupView extends FIUView<Props, State> {
     state: State = {
         createModalOpen: false,
         joinModalOpen: false,
@@ -169,7 +169,7 @@ export class FIUGroupView extends Component<Props, State> {
             this.setState({ success: 'Group created.' })
         } catch (err) {
             this.setState({
-                error: err instanceof Error ? err.message : 'Unable to create group.',
+                error: this.getErrorMessage(err, 'Unable to create group.'),
             })
         } finally {
             this.setBusy(false)
@@ -189,7 +189,7 @@ export class FIUGroupView extends Component<Props, State> {
             this.closeJoinModal()
         } catch (err) {
             this.setState({
-                error: err instanceof Error ? err.message : 'Unable to send join request.',
+                error: this.getErrorMessage(err, 'Unable to send join request.'),
             })
         } finally {
             this.setBusy(false)
@@ -216,7 +216,7 @@ export class FIUGroupView extends Component<Props, State> {
             this.closeEditModal()
         } catch (err) {
             this.setState({
-                error: err instanceof Error ? err.message : 'Unable to update group.',
+                error: this.getErrorMessage(err, 'Unable to update group.'),
             })
         } finally {
             this.setBusy(false)
@@ -236,7 +236,7 @@ export class FIUGroupView extends Component<Props, State> {
             })
         } catch (err) {
             this.setState({
-                error: err instanceof Error ? err.message : 'Unable to remove group.',
+                error: this.getErrorMessage(err, 'Unable to remove group.'),
             })
         } finally {
             this.setBusy(false)
@@ -252,7 +252,7 @@ export class FIUGroupView extends Component<Props, State> {
             this.setState({ success: accept ? 'Request accepted.' : 'Request declined.' })
         } catch (err) {
             this.setState({
-                error: err instanceof Error ? err.message : 'Unable to process request.',
+                error: this.getErrorMessage(err, 'Unable to process request.'),
             })
         } finally {
             this.setBusy(false)

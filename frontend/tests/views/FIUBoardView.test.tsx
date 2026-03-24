@@ -7,6 +7,8 @@ vi.mock('../../src/views/FIUMapView', () => {
     FIUMapView: class {
       init() {}
       render() {}
+      renderGeofences() {}
+      destroy() {}
     },
   }
 })

@@ -12,15 +12,41 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
+import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
 
 /** Leaflet-based map renderer for board locations. */
 export class FIUMapView {
     private map: L.Map | null = null
     private markers: L.Marker[] = []
+    private geofenceLayer: L.LayerGroup | null = null
+    private geofenceCircles: L.Circle[] = []
+
+    /** Tears down the Leaflet instance (useful for React dev/StrictMode remounts). */
+    destroy(): void {
+        try {
+            this.map?.remove()
+        } finally {
+            this.map = null
+            this.geofenceLayer = null
+            this.markers = []
+            this.geofenceCircles = []
+        }
+    }
 
     /** Initializes the map once for the given container. */
     init(container: HTMLDivElement) {
         if (this.map) return
+
+        // In React dev/StrictMode, components may mount/unmount/mount quickly.
+        // Leaflet stores an internal id on the DOM node; if it lingers, init can throw.
+        const anyContainer = container as unknown as { _leaflet_id?: unknown }
+        if (anyContainer._leaflet_id != null) {
+            try {
+                delete anyContainer._leaflet_id
+            } catch {
+                anyContainer._leaflet_id = undefined
+            }
+        }
 
         // Fix default marker icons in Vite
         delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
@@ -33,11 +59,27 @@ export class FIUMapView {
                 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
         })
 
-        this.map = L.map(container).setView([40.7128, -74.006], 12)
+        try {
+            this.map = L.map(container).setView([40.7128, -74.006], 12)
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            if (message.includes('Map container is already initialized')) {
+                try {
+                    delete anyContainer._leaflet_id
+                } catch {
+                    anyContainer._leaflet_id = undefined
+                }
+                this.map = L.map(container).setView([40.7128, -74.006], 12)
+            } else {
+                throw err
+            }
+        }
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(this.map)
+
+        this.geofenceLayer = L.layerGroup().addTo(this.map)
     }
 
     /** Updates markers based on the latest board/location data. */
@@ -70,5 +112,30 @@ export class FIUMapView {
             const group = L.featureGroup(this.markers)
             this.map.fitBounds(group.getBounds().pad(0.2))
         }
+    }
+
+    /** Updates geofence circles based on enabled geofences. */
+    renderGeofences(geofences: Array<FIUGeofenceEntity | null | undefined> | null | undefined) {
+        if (!this.map || !this.geofenceLayer) return
+
+        this.geofenceCircles.forEach((c) => c.remove())
+        this.geofenceCircles = []
+
+        ;(geofences ?? [])
+            .filter((g): g is FIUGeofenceEntity =>
+                g != null && typeof g === 'object' && 'center_lat' in g && 'center_lon' in g
+            )
+            .filter((g) => (g as Partial<FIUGeofenceEntity> | null | undefined)?.enabled !== false)
+            .forEach((g) => {
+                const circle = L.circle([g.center_lat, g.center_lon], {
+                    radius: g.radius_meters,
+                })
+                    .addTo(this.geofenceLayer!)
+                    .bindPopup(
+                        `<strong>${g.name}</strong><br/>Radius: ${Math.round(g.radius_meters)} m`
+                    )
+
+                this.geofenceCircles.push(circle)
+            })
     }
 }

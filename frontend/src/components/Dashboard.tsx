@@ -1,4 +1,4 @@
-import { FIUBoardController } from '../controllers/FIUBoardController'
+import { FIUMapController } from '../controllers/FIUMapController'
 
 interface DashboardProps {
   userEmail: string | undefined
@@ -8,5 +8,5 @@ interface DashboardProps {
 
 /** Top-level dashboard component that delegates to FIUBoardView. */
 export function Dashboard({ userEmail, userId, onLogout }: DashboardProps) {
-  return <FIUBoardController userEmail={userEmail} userId={userId} onLogout={onLogout} />
+  return <FIUMapController userEmail={userEmail} userId={userId} onLogout={onLogout} />
 }
