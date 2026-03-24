@@ -37,6 +37,7 @@ interface Props {
     userId?: string
     userEmail?: string
     userDisplayName?: string
+    onDisplayNameUpdated?: (nextDisplayName: string) => void
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
     geofences: FIUGeofenceEntity[]

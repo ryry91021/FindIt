@@ -22,6 +22,8 @@ import type { SidebarModalAction } from '../views/FIUBoardView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
+import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
+import { FIUGeofencesController } from './FIUGeofencesController'
 
 
 
@@ -34,6 +36,7 @@ interface Props {
 type State = {
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
+    geofences: FIUGeofenceEntity[]
     groups: FIUGroupEntity[]
     groupMembers: FIUGroupMemberEntity[]
     pendingGroupJoinRequests: FIUGroupJoinRequestEntity[]
@@ -49,12 +52,15 @@ export class FIUBoardController extends Component<Props, State> {
     state: State = {
         boards: [],
         locations: [],
+        geofences: [],
         groups: [],
         groupMembers: [],
         pendingGroupJoinRequests: [],
         userDisplayName: undefined,
         error: null,
     }
+
+    private geofencesController = new FIUGeofencesController()
 
     private requestSeq = 0
     private cancelled = false
@@ -102,10 +108,11 @@ export class FIUBoardController extends Component<Props, State> {
 
         try {
             this.setState({ error: null })
-            const [res, groups, pendingGroupJoinRequests, userDisplayName] = await Promise.all([
+            const [res, groups, pendingGroupJoinRequests, geofences, userDisplayName] = await Promise.all([
                 this.loadBoardsAndLatestLocations(this.props.userId),
                 FIUGroupModel.fetchGroupsForUser(this.props.userId),
                 FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+                this.geofencesController.loadGeofences(this.props.userId),
                 FIUProfileModel.fetchBestLabelForUser(this.props.userId, this.props.userEmail),
             ])
             const groupMembers = await FIUGroupModel.fetchMembersForGroups(
@@ -116,6 +123,7 @@ export class FIUBoardController extends Component<Props, State> {
             this.setState({
                 boards: res.boards,
                 locations: res.locations,
+                geofences,
                 groups,
                 groupMembers,
                 pendingGroupJoinRequests,
@@ -132,6 +140,7 @@ export class FIUBoardController extends Component<Props, State> {
                         : 'Something went wrong while loading your boards. Please try again.',
                 boards: [],
                 locations: [],
+                geofences: [],
                 groups: [],
                 groupMembers: [],
                 pendingGroupJoinRequests: [],
@@ -141,10 +150,11 @@ export class FIUBoardController extends Component<Props, State> {
     }
 
     private async refreshBoardsAndGroups(): Promise<void> {
-        const [res, groups, pendingGroupJoinRequests, userDisplayName] = await Promise.all([
+        const [res, groups, pendingGroupJoinRequests, geofences, userDisplayName] = await Promise.all([
             this.loadBoardsAndLatestLocations(this.props.userId),
             FIUGroupModel.fetchGroupsForUser(this.props.userId),
             FIUGroupModel.fetchPendingJoinRequests(this.props.userId),
+            this.geofencesController.loadGeofences(this.props.userId),
             FIUProfileModel.fetchBestLabelForUser(this.props.userId, this.props.userEmail),
         ])
         const groupMembers = await FIUGroupModel.fetchMembersForGroups(
@@ -154,11 +164,38 @@ export class FIUBoardController extends Component<Props, State> {
         this.setState({
             boards: res.boards,
             locations: res.locations,
+            geofences,
             groups,
             groupMembers,
             pendingGroupJoinRequests,
             userDisplayName,
         })
+    }
+
+    private handleCreateGeofence = async (
+        name: string,
+        centerLat: number,
+        centerLon: number,
+        radiusMeters: number
+    ): Promise<void> => {
+        await this.geofencesController.createGeofence(
+            { name, center_lat: centerLat, center_lon: centerLon, radius_meters: radiusMeters, enabled: true },
+            this.props.userId
+        )
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleUpdateGeofence = async (
+        geofenceId: string,
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
+    ): Promise<void> => {
+        await this.geofencesController.updateGeofence(geofenceId, patch)
+        await this.refreshBoardsAndGroups()
+    }
+
+    private handleToggleGeofenceEnabled = async (geofenceId: string, enabled: boolean): Promise<void> => {
+        await this.geofencesController.toggleEnabled(geofenceId, enabled)
+        await this.refreshBoardsAndGroups()
     }
 
     /** Creates a new board and refreshes dashboard data. */
@@ -246,7 +283,8 @@ export class FIUBoardController extends Component<Props, State> {
 
     render() {
         const { userEmail } = this.props
-        const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, error, userDisplayName } = this.state
+        const { boards, locations, geofences, groups, groupMembers, pendingGroupJoinRequests, error, userDisplayName } =
+            this.state
 
         return (
             <FIUBoardView
@@ -255,6 +293,7 @@ export class FIUBoardController extends Component<Props, State> {
                 userDisplayName={userDisplayName}
                 boards={boards}
                 locations={locations}
+                geofences={geofences}
                 groups={groups}
                 groupMembers={groupMembers}
                 error={error}
@@ -272,6 +311,9 @@ export class FIUBoardController extends Component<Props, State> {
                 onUpdateGroupBoards={this.handleUpdateGroupBoards}
                 onJoinGroup={this.handleJoinGroup}
                 onRespondToGroupJoinRequest={this.handleRespondToGroupJoinRequest}
+                onCreateGeofence={this.handleCreateGeofence}
+                onUpdateGeofence={this.handleUpdateGeofence}
+                onToggleGeofenceEnabled={this.handleToggleGeofenceEnabled}
             />
         )
     }
