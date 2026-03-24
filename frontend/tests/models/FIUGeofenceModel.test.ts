@@ -41,12 +41,12 @@ function makeClient(opts: {
     void table
 
     const builder: QueryBuilder<unknown[]> = {
-      select: (_columns: string) => builder,
+      select: () => builder,
       eq: (column: string, value: unknown) => {
         calls.eq.push({ column, value })
         return builder
       },
-      order: (_column: string, _opts: { ascending: boolean }) => {
+      order: () => {
         return Promise.resolve({ data: selectData, error: null })
       },
       insert: (payload: unknown) => {
