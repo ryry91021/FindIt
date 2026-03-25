@@ -37,7 +37,6 @@ interface Props {
     userId?: string
     userEmail?: string
     userDisplayName?: string
-    onDisplayNameUpdated?: (nextDisplayName: string) => void
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
     geofences: FIUGeofenceEntity[]
@@ -676,10 +675,8 @@ export class FIUBoardView extends FIUView<Props, State> {
 
                 {/* Account menu (top-right overlay) */}
                 <FIUAccountView
-                    userId={this.props.userId}
                     userEmail={userEmail}
                     userDisplayName={this.props.userDisplayName}
-                    onDisplayNameUpdated={this.props.onDisplayNameUpdated}
                     onSignOut={onSignOut}
                 />
 

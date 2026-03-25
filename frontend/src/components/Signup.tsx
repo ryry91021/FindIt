@@ -35,11 +35,7 @@ export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
     setLoading(true)
 
     try {
-      if (displayName.trim().length > 0) {
-        await authService.signUp(email, password, displayName)
-      } else {
-        await authService.signUp(email, password)
-      }
+      await authService.signUp(email, password)
       setSuccess(true)
       setTimeout(() => {
         onSignupSuccess()

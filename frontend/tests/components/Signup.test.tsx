@@ -15,6 +15,7 @@ describe('Signup', () => {
 
     render(<Signup onSignupSuccess={vi.fn()} onSwitchToLogin={vi.fn()} />)
 
+    await user.type(screen.getByLabelText('Display name'), 'Ryan')
     await user.type(screen.getByLabelText('Email'), 'a@b.com')
     await user.type(screen.getByLabelText('Password'), 'password')
     await user.type(screen.getByLabelText('Confirm Password'), 'different')
@@ -32,12 +33,13 @@ describe('Signup', () => {
     const { Signup } = await import('../../src/components/Signup')
     render(<Signup onSignupSuccess={vi.fn()} onSwitchToLogin={vi.fn()} />)
 
+    await user.type(screen.getByLabelText('Display name'), 'Ryan Davis')
     await user.type(screen.getByLabelText('Email'), 'a@b.com')
     await user.type(screen.getByLabelText('Password'), 'password')
     await user.type(screen.getByLabelText('Confirm Password'), 'password')
     await user.click(screen.getByRole('button', { name: /sign up/i }))
 
-    expect(authService.signUp).toHaveBeenCalledWith('a@b.com', 'password')
+    expect(authService.signUp).toHaveBeenCalledWith('a@b.com', 'password', 'Ryan Davis')
     expect(await screen.findByText(/sign up successful/i)).toBeInTheDocument()
   })
 })

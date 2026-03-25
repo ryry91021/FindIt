@@ -4,15 +4,24 @@ import { supabase } from './supabaseClient'
 export const authService = {
   /** Creates a new user account with email/password. */
   async signUp(email: string, password: string, displayName?: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: displayName?.trim() || undefined,
-        },
-      },
-    })
+    const trimmedDisplayName = displayName?.trim()
+
+    const { data, error } = await supabase.auth.signUp(
+      trimmedDisplayName
+        ? {
+            email,
+            password,
+            options: {
+              data: {
+                display_name: trimmedDisplayName,
+              },
+            },
+          }
+        : {
+            email,
+            password,
+          }
+    )
     if (error) throw error
     return data
   },

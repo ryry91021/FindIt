@@ -6,7 +6,6 @@ type Props = {
     userId?: string
     userEmail?: string
     userDisplayName?: string
-    onDisplayNameUpdated?: (nextDisplayName: string) => void
     onSignOut: () => void
 }
 
@@ -62,8 +61,9 @@ export class FIUAccountView extends Component<Props, State> {
     /** Renders the account dropdown UI. */
     render() {
         const { userEmail, userDisplayName, onSignOut } = this.props
-        const { open, editOpen, editValue, busy, error } = this.state
-        const display = userDisplayName?.trim() || 'Not set'
+        const { open } = this.state
+
+        const displayName = userDisplayName?.trim() || 'Not set'
 
         return (
             <div className="account-menu">
@@ -73,17 +73,8 @@ export class FIUAccountView extends Component<Props, State> {
 
                 {open && (
                     <div className="account-dropdown">
-                        <div className="account-display-name-row">
-                            <p className="account-display-name">Display name: {display}</p>
-                            <button
-                                type="button"
-                                className="account-edit-button"
-                                onClick={this.openEdit}
-                            >
-                                Edit
-                            </button>
-                        </div>
-                        {userEmail?.trim() && <p className="account-email">{userEmail}</p>}
+                        <p className="account-email">Display name: {displayName}</p>
+                        <p className="account-email">{userEmail}</p>
                         <button className="signout-button" onClick={onSignOut}>
                             Sign Out
                         </button>
