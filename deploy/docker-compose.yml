@@ -1,0 +1,13 @@
+services:
+  frontend:
+    image: ${IMAGE_REF}
+    container_name: findit-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+
+  mqtt-ingestor:
+    image: alpine:latest
+    container_name: findit-mqtt
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do echo mqtt placeholder running; sleep 300; done"]
