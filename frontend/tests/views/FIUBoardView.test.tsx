@@ -54,6 +54,7 @@ describe('FIUBoardView', () => {
         onCreateGeofence={vi.fn(async () => {})}
         onUpdateGeofence={vi.fn(async () => {})}
         onToggleGeofenceEnabled={vi.fn(async () => {})}
+        onDeleteGeofence={vi.fn(async () => {})}
       />
     )
 
@@ -105,6 +106,7 @@ describe('FIUBoardView', () => {
         onCreateGeofence={vi.fn(async () => {})}
         onUpdateGeofence={vi.fn(async () => {})}
         onToggleGeofenceEnabled={vi.fn(async () => {})}
+        onDeleteGeofence={vi.fn(async () => {})}
       />
     )
 
@@ -155,6 +157,7 @@ describe('FIUBoardView', () => {
         onCreateGeofence={vi.fn(async () => {})}
         onUpdateGeofence={vi.fn(async () => {})}
         onToggleGeofenceEnabled={vi.fn(async () => {})}
+        onDeleteGeofence={vi.fn(async () => {})}
       />
     )
 
@@ -204,6 +207,7 @@ describe('FIUBoardView', () => {
         onCreateGeofence={vi.fn(async () => {})}
         onUpdateGeofence={vi.fn(async () => {})}
         onToggleGeofenceEnabled={vi.fn(async () => {})}
+        onDeleteGeofence={vi.fn(async () => {})}
       />
     )
 

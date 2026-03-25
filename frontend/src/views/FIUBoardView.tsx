@@ -60,12 +60,19 @@ interface Props {
     onSetMemberRole: (groupId: string, memberUserId: string, role: 'admin' | 'member') => Promise<void>
     onRemoveMember: (groupId: string, memberUserId: string) => Promise<void>
     onTransferOwnership: (groupId: string, newOwnerUserId: string) => Promise<void>
-    onCreateGeofence: (name: string, centerLat: number, centerLon: number, radiusMeters: number) => Promise<void>
+    onCreateGeofence: (
+        name: string,
+        centerLat: number,
+        centerLon: number,
+        radiusMeters: number,
+        groupId?: string | null
+    ) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
-        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; group_id?: string | null }
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
+    onDeleteGeofence: (geofenceId: string) => Promise<void>
 }
 type State = {
     sidebarOpen: boolean
@@ -174,6 +181,27 @@ export class FIUBoardView extends FIUView<Props, State> {
         return this.state.groupVisibilityById[groupId] !== false
     }
 
+    private isOwnedBoard = (board: FIUBoardEntity | null | undefined): boolean => {
+        const me = this.props.userId
+        if (!me || !board) return false
+        return board.owner_id === me
+    }
+
+    private isBoardVisibleOnMapAndLegend = (board: FIUBoardEntity | null | undefined): boolean => {
+        if (!board) return false
+        if (!board.group_id) return true
+        if (this.isOwnedBoard(board)) return true
+        return this.isGroupVisible(board.group_id)
+    }
+
+    private isGeofenceVisibleOnMap = (geofence: FIUGeofenceEntity | null | undefined): boolean => {
+        if (!geofence) return false
+        if (!geofence.group_id) return true
+        const me = this.props.userId
+        if (me && geofence.owner_id === me) return true
+        return this.isGroupVisible(geofence.group_id)
+    }
+
     private getFilteredInputs(): {
         boards: FIUBoardEntity[]
         locations: FIULocationRecordEntity[]
@@ -188,15 +216,14 @@ export class FIUBoardView extends FIUView<Props, State> {
             boardById.set(b.id, b)
         })
 
-        const visibleBoards = boards.filter((b) => this.isGroupVisible(b.group_id ?? null))
+        const visibleBoards = boards.filter((b) => this.isBoardVisibleOnMapAndLegend(b))
 
         const visibleLocations = locations.filter((loc) => {
             const board = boardById.get(loc.device_id)
-            const groupId = board?.group_id ?? null
-            return this.isGroupVisible(groupId)
+            return this.isBoardVisibleOnMapAndLegend(board)
         })
 
-        const visibleGeofences = geofences.filter((g) => this.isGroupVisible(g.group_id ?? null))
+        const visibleGeofences = geofences.filter((g) => this.isGeofenceVisibleOnMap(g))
 
         return { boards: visibleBoards, locations: visibleLocations, geofences: visibleGeofences }
     }
@@ -634,6 +661,13 @@ export class FIUBoardView extends FIUView<Props, State> {
         const pendingGroupCount = this.props.pendingGroupJoinRequests.length
         const { sidebarOpen, modalOpen, activeModalAction } = this.state
 
+        const groupNameById = new Map<string, string>()
+        ;(this.props.groups ?? []).forEach((g) => {
+            if (g?.id) groupNameById.set(g.id, g.name ?? 'Untitled Group')
+        })
+
+        const visibleForLegend = this.getFilteredInputs().boards
+
         return (
             <div className="dashboard-root">
                 {/* Map */}
@@ -730,10 +764,17 @@ export class FIUBoardView extends FIUView<Props, State> {
                         {boards.length === 0 && !error && <p>No boards found.</p>}
                         {boards.map((board) => {
                             const hasLocation = locations.some((l) => l.device_id === board.id)
+                            const groupName = board.group_id ? groupNameById.get(board.group_id) : null
+                            const showGroupSubtext = Boolean(board.group_id) && !this.isOwnedBoard(board) && Boolean(groupName)
                             return (
                                 <div key={board.id} className="board-item">
                                     <span className={`status-dot ${hasLocation ? 'online' : 'offline'}`} />
-                                    {board.display_name ?? 'Unnamed Board'}
+                                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                                        <span>{board.display_name ?? 'Unnamed Board'}</span>
+                                        {showGroupSubtext && (
+                                            <span className="board-management-subtitle">{groupName}</span>
+                                        )}
+                                    </div>
                                 </div>
                             )
                         })}
@@ -775,21 +816,25 @@ export class FIUBoardView extends FIUView<Props, State> {
                         ) : activeModalAction === 'geofence-management' ? (
                             <FIUGeofenceView
                                 geofences={this.props.geofences}
+                                groups={this.props.groups}
                                 onCreateGeofence={this.props.onCreateGeofence}
                                 onUpdateGeofence={this.props.onUpdateGeofence}
                                 onToggleGeofenceEnabled={this.props.onToggleGeofenceEnabled}
+                                onDeleteGeofence={this.props.onDeleteGeofence}
                             />
                         ) : activeModalAction === 'group-settings' ? (
                             <FIUGroupView
                                 userId={this.props.userId}
                                 groups={this.props.groups}
                                 boards={this.props.boards}
+                                geofences={this.props.geofences}
                                 groupMembers={this.props.groupMembers}
                                 pendingJoinRequests={this.props.pendingGroupJoinRequests}
                                 onCreateGroup={this.props.onCreateGroup}
                                 onDeleteGroup={this.props.onDeleteGroup}
                                 onRenameGroup={this.props.onRenameGroup}
                                 onUpdateGroupBoards={this.props.onUpdateGroupBoards}
+                                onUpdateGeofence={this.props.onUpdateGeofence}
                                 onJoinGroup={this.props.onJoinGroup}
                                 onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
                                 onLeaveGroup={this.props.onLeaveGroup}
@@ -840,8 +885,8 @@ export class FIUBoardView extends FIUView<Props, State> {
                 {/* Boards legend */}
                 <div className="boards-legend">
                     <h4>Boards</h4>
-                    {boards.length === 0 && !error && <p>No boards found.</p>}
-                    {boards.map((board) => {
+                    {visibleForLegend.length === 0 && !error && <p>No boards found.</p>}
+                    {visibleForLegend.map((board) => {
                         const hasLocation = locations.some((l) => l.device_id === board.id)
                         return (
                             <div key={board.id} className="board-item">

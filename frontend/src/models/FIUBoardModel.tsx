@@ -137,7 +137,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         // This is the most robust approach when membership tables are not directly selectable.
         const { data: accessibleDevices, error: accessibleErr } = await client
             .from('devices')
-            .select('id, display_name, device_eui, group_id')
+            .select('id, owner_id, display_name, device_eui, group_id')
             .order('created_at', { ascending: false })
 
         if (accessibleErr) {
@@ -216,7 +216,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         if (memberDeviceIds.length > 0) {
             const { data: sharedData, error: sharedErr } = await client
                 .from('devices')
-                .select('id, display_name, device_eui, group_id')
+                .select('id, owner_id, display_name, device_eui, group_id')
                 .in('id', memberDeviceIds)
 
             if (sharedErr) {
@@ -231,7 +231,7 @@ export class FIUBoardModel extends FIUModel<FIUBoardEntity> {
         if (groupIds.length > 0) {
             const { data: groupData, error: groupErr } = await client
                 .from('devices')
-                .select('id, display_name, device_eui, group_id')
+                .select('id, owner_id, display_name, device_eui, group_id')
                 .in('group_id', groupIds)
 
             if (groupErr) {

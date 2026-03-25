@@ -6,12 +6,15 @@ export const authService = {
   async signUp(email: string, password: string, displayName?: string) {
     const trimmedDisplayName = displayName?.trim()
 
+    const emailRedirectTo = 'https://a-where.app'
+
     const { data, error } = await supabase.auth.signUp(
       trimmedDisplayName
         ? {
             email,
             password,
             options: {
+              emailRedirectTo,
               data: {
                 display_name: trimmedDisplayName,
               },
@@ -20,6 +23,9 @@ export const authService = {
         : {
             email,
             password,
+            options: {
+              emailRedirectTo,
+            },
           }
     )
     if (error) throw error
@@ -54,7 +60,9 @@ export const authService = {
 
   /** Sends a password reset email. */
   async resetPassword(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://a-where.app',
+    })
     if (error) throw error
   },
 }

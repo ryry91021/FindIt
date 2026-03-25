@@ -3,6 +3,7 @@ import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
+import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FIUProfileModel } from '../models/FIUProfileModel'
@@ -11,12 +12,17 @@ type Props = {
     userId?: string
     groups: FIUGroupEntity[]
     boards: FIUBoardEntity[]
+    geofences: FIUGeofenceEntity[]
     groupMembers: FIUGroupMemberEntity[]
     pendingJoinRequests: FIUGroupJoinRequestEntity[]
     onCreateGroup: (name: string, boardIds: string[]) => Promise<void>
     onDeleteGroup: (groupId: string) => Promise<void>
     onRenameGroup: (groupId: string, name: string) => Promise<void>
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
+    onUpdateGeofence: (
+        geofenceId: string,
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; group_id?: string | null }
+    ) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToJoinRequest: (requestId: string, accept: boolean) => Promise<void>
     onLeaveGroup: (groupId: string) => Promise<void>
@@ -326,6 +332,21 @@ export class FIUGroupView extends FIUView<Props, State> {
         }
     }
 
+    private handleSetGeofenceGroup = async (geofenceId: string, groupId: string | null) => {
+        try {
+            this.setBusy(true)
+            this.clearFeedback()
+            await this.props.onUpdateGeofence(geofenceId, { group_id: groupId })
+            this.setState({ success: 'Geofence updated.' })
+        } catch (err) {
+            this.setState({
+                error: this.getErrorMessage(err, 'Unable to update geofence.'),
+            })
+        } finally {
+            this.setBusy(false)
+        }
+    }
+
     /** Opens group removal confirmation modal for the selected group. */
     private openGroupDeleteConfirm = (groupId: string) => {
         this.setState({ confirmDeleteGroupId: groupId })
@@ -338,7 +359,7 @@ export class FIUGroupView extends FIUView<Props, State> {
 
     /** Renders group list, actions, and modal dialogs for group workflows. */
     render() {
-        const { groups, boards, groupMembers, pendingJoinRequests } = this.props
+        const { groups, boards, geofences, groupMembers, pendingJoinRequests } = this.props
         const {
             createModalOpen,
             joinModalOpen,
@@ -695,6 +716,92 @@ export class FIUGroupView extends FIUView<Props, State> {
                                                 })}
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="group-boards-row" aria-label="Geofences in group">
+                                    <span className="group-request-user">Geofences in group:</span>
+                                    {(() => {
+                                        const memberNameById = new Map<string, string>()
+                                        ;(groupMembers ?? [])
+                                            .filter((m) => m.group_id === group.id)
+                                            .forEach((m) => {
+                                                if (m.user_id) memberNameById.set(m.user_id, m.user_name)
+                                            })
+
+                                        const groupGeofences = (geofences ?? []).filter(
+                                            (g) => g.group_id === group.id
+                                        )
+                                        if (groupGeofences.length === 0) {
+                                            return <span className="board-management-placeholder">No geofences assigned.</span>
+                                        }
+
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {groupGeofences.map((g) => {
+                                                    const ownerLabel =
+                                                        (g.owner_id && memberNameById.get(g.owner_id)) ||
+                                                        g.owner_id ||
+                                                        'Unknown'
+                                                    const isMine = Boolean(this.props.userId && g.owner_id === this.props.userId)
+                                                    return (
+                                                        <div
+                                                            key={`${group.id}-${g.id}`}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                                                        >
+                                                            <span className="group-board-pill">{g.name}</span>
+                                                            <span className="group-item-id">Owner: {ownerLabel}</span>
+                                                            {isMine && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="board-management-danger"
+                                                                    disabled={busy}
+                                                                    onClick={() => void this.handleSetGeofenceGroup(g.id, null)}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+
+                                <div className="group-boards-row" aria-label="Add my geofences to group">
+                                    <span className="group-request-user">Add my geofences:</span>
+                                    {(() => {
+                                        const me = this.props.userId
+                                        if (!me) return <span className="board-management-placeholder">Sign in to manage.</span>
+                                        const myPersonalGeofences = (geofences ?? [])
+                                            .filter((g) => g.owner_id === me)
+                                            .filter((g) => !g.group_id)
+
+                                        if (myPersonalGeofences.length === 0) {
+                                            return <span className="board-management-placeholder">No personal geofences available.</span>
+                                        }
+
+                                        return (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {myPersonalGeofences.map((g) => (
+                                                    <div
+                                                        key={`${group.id}-add-${g.id}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                                                    >
+                                                        <span className="group-board-pill">{g.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="board-management-button"
+                                                            disabled={busy}
+                                                            onClick={() => void this.handleSetGeofenceGroup(g.id, group.id)}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
+                                    })()}
                                 </div>
 
                                 <div className="group-boards-row" aria-label="Boards in group">

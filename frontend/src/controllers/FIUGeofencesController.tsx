@@ -19,4 +19,8 @@ export class FIUGeofencesController {
     async toggleEnabled(geofenceId: string, enabled: boolean): Promise<void> {
         await FIUGeofenceModel.updateGeofence(geofenceId, { enabled })
     }
+
+    async deleteGeofence(geofenceId: string): Promise<void> {
+        await FIUGeofenceModel.deleteGeofence(geofenceId)
+    }
 }

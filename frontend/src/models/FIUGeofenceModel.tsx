@@ -157,4 +157,17 @@ export class FIUGeofenceModel extends FIUModel<FIUGeofenceEntity> {
         })
         throw new Error('Unable to update geofence.')
     }
+
+    static async deleteGeofence(geofenceId: string, client: SupabaseClient = supabase): Promise<void> {
+        if (!geofenceId) return
+
+        const { error } = await client.from('geofences').delete().eq('id', geofenceId)
+        if (error) {
+            console.error('FIUGeofenceModel.deleteGeofence: delete failed', {
+                error,
+                errorText: this.formatSupabaseError(error),
+            })
+            throw new Error('Unable to remove geofence.')
+        }
+    }
 }

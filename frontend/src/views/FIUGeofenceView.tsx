@@ -1,17 +1,33 @@
 import { createRef } from 'react'
 import L from 'leaflet'
 import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
+import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import { geocodeAddress } from '../services/geocodingService'
 import { FIUView } from './FIUView'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 
 type Props = {
     geofences: FIUGeofenceEntity[]
-    onCreateGeofence: (name: string, centerLat: number, centerLon: number, radiusMeters: number) => Promise<void>
+    groups: FIUGroupEntity[]
+    onCreateGeofence: (
+        name: string,
+        centerLat: number,
+        centerLon: number,
+        radiusMeters: number,
+        groupId?: string | null
+    ) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
-        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
+        patch: {
+            name?: string
+            center_lat?: number
+            center_lon?: number
+            radius_meters?: number
+            group_id?: string | null
+        }
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
+    onDeleteGeofence: (geofenceId: string) => Promise<void>
 }
 
 type Mode = 'list' | 'edit'
@@ -27,9 +43,11 @@ type State = {
     centerLat: number
     centerLon: number
     addressQuery: string
+    groupId: string
     busy: boolean
     error: string | null
     optimisticEnabled: Record<string, boolean>
+    confirmDeleteId: string | null
 }
 
 export class FIUGeofenceView extends FIUView<Props, State> {
@@ -41,9 +59,11 @@ export class FIUGeofenceView extends FIUView<Props, State> {
         centerLat: DEFAULT_CENTER.lat,
         centerLon: DEFAULT_CENTER.lon,
         addressQuery: '',
+        groupId: '',
         busy: false,
         error: null,
         optimisticEnabled: {},
+        confirmDeleteId: null,
     }
 
     private mapContainerRef = createRef<HTMLDivElement>()
@@ -161,6 +181,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             centerLat: DEFAULT_CENTER.lat,
             centerLon: DEFAULT_CENTER.lon,
             addressQuery: '',
+            groupId: '',
             busy: false,
             mode: 'edit',
         })
@@ -175,6 +196,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             centerLat: Number(g.center_lat ?? DEFAULT_CENTER.lat),
             centerLon: Number(g.center_lon ?? DEFAULT_CENTER.lon),
             addressQuery: '',
+            groupId: g.group_id ?? '',
             busy: false,
             mode: 'edit',
         })
@@ -185,6 +207,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             mode: 'list',
             editingId: null,
             addressQuery: '',
+            groupId: '',
             busy: false,
             error: null,
         })
@@ -194,6 +217,9 @@ export class FIUGeofenceView extends FIUView<Props, State> {
         const trimmed = this.state.name.trim()
         if (!trimmed) return
 
+        const groupId = this.state.groupId.trim()
+        const group_id = groupId ? groupId : null
+
         this.setState({ error: null, busy: true })
         try {
             if (this.state.editingId) {
@@ -202,13 +228,15 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                     center_lat: this.state.centerLat,
                     center_lon: this.state.centerLon,
                     radius_meters: this.state.radiusMeters,
+                    group_id,
                 })
             } else {
                 await this.props.onCreateGeofence(
                     trimmed,
                     this.state.centerLat,
                     this.state.centerLon,
-                    this.state.radiusMeters
+                    this.state.radiusMeters,
+                    group_id
                 )
             }
 
@@ -270,9 +298,43 @@ export class FIUGeofenceView extends FIUView<Props, State> {
     render() {
         const sortedGeofences = this.getSortedGeofences()
 
+        const groupOptions = (this.props.groups ?? []).filter((g) => Boolean(g?.id))
+
+        const confirmDeleteId = this.state.confirmDeleteId
+
         return (
             <div className="geofence-page">
                 {this.state.error && <p className="board-management-error">{this.state.error}</p>}
+
+                <ConfirmDialog
+                    open={Boolean(confirmDeleteId)}
+                    title="Remove geofence"
+                    message="This will permanently delete this geofence."
+                    ariaLabel="Confirm removing geofence"
+                    confirmLabel="Remove"
+                    cancelLabel="Cancel"
+                    busy={this.state.busy}
+                    onConfirm={() => {
+                        const id = confirmDeleteId
+                        if (!id) return
+
+                        this.setState({ busy: true, error: null })
+                        void this.props
+                            .onDeleteGeofence(id)
+                            .then(() => {
+                                this.setState({ confirmDeleteId: null })
+                            })
+                            .catch((err) => {
+                                this.setState({
+                                    error: this.getErrorMessage(err, 'Unable to remove geofence.'),
+                                })
+                            })
+                            .finally(() => {
+                                this.setState({ busy: false })
+                            })
+                    }}
+                    onCancel={() => this.setState({ confirmDeleteId: null })}
+                />
 
                 {this.state.mode === 'list' ? (
                     <>
@@ -297,6 +359,14 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                                                 onClick={() => this.openEdit(g)}
                                             >
                                                 Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="board-management-danger"
+                                                disabled={this.state.busy}
+                                                onClick={() => this.setState({ confirmDeleteId: g.id })}
+                                            >
+                                                Remove
                                             </button>
                                         </div>
 
@@ -340,6 +410,23 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                                 value={this.state.name}
                                 onChange={(e) => this.setState({ name: e.target.value })}
                             />
+                        </div>
+
+                        <div className="board-management-row">
+                            <select
+                                className="board-management-input"
+                                value={this.state.groupId}
+                                onChange={(e) => this.setState({ groupId: e.target.value })}
+                                disabled={this.state.busy}
+                                aria-label="Geofence group"
+                            >
+                                <option value="">Personal</option>
+                                {groupOptions.map((g) => (
+                                    <option key={g.id} value={g.id}>
+                                        {g.name ?? 'Untitled Group'}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="geofence-radius">

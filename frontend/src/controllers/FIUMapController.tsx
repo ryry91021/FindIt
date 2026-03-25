@@ -181,10 +181,11 @@ export class FIUMapController extends FIUController<Props, State> {
         name: string,
         center_lat: number,
         center_lon: number,
-        radius_meters: number
+        radius_meters: number,
+        groupId?: string | null
     ): Promise<void> => {
         await this.geofencesController.createGeofence(
-            { name, center_lat, center_lon, radius_meters, enabled: true },
+            { name, center_lat, center_lon, radius_meters, enabled: true, group_id: groupId ?? null },
             this.props.userId
         )
         await this.refreshAll()
@@ -192,7 +193,7 @@ export class FIUMapController extends FIUController<Props, State> {
 
     private handleUpdateGeofence = async (
         geofenceId: string,
-        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number }
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; group_id?: string | null }
     ): Promise<void> => {
         await this.geofencesController.updateGeofence(geofenceId, patch)
         await this.refreshAll()
@@ -200,6 +201,11 @@ export class FIUMapController extends FIUController<Props, State> {
 
     private handleToggleGeofenceEnabled = async (geofenceId: string, enabled: boolean): Promise<void> => {
         await this.geofencesController.toggleEnabled(geofenceId, enabled)
+        await this.refreshAll()
+    }
+
+    private handleDeleteGeofence = async (geofenceId: string): Promise<void> => {
+        await this.geofencesController.deleteGeofence(geofenceId)
         await this.refreshAll()
     }
 
@@ -321,6 +327,7 @@ export class FIUMapController extends FIUController<Props, State> {
                 onCreateGeofence={this.handleCreateGeofence}
                 onUpdateGeofence={this.handleUpdateGeofence}
                 onToggleGeofenceEnabled={this.handleToggleGeofenceEnabled}
+                onDeleteGeofence={this.handleDeleteGeofence}
             />
         )
     }
