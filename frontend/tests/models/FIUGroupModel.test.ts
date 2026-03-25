@@ -46,6 +46,7 @@ function makeClient(opts: {
         return { data: null, error: null }
       },
       insert: async (_payload: unknown) => {
+        void _payload
         return { data: null, error: opts.insertError ?? null }
       },
     }
