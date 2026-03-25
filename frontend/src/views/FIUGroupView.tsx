@@ -5,6 +5,7 @@ import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { FIUProfileModel } from '../models/FIUProfileModel'
 
 type Props = {
     groups: FIUGroupEntity[]
@@ -35,6 +36,7 @@ type State = {
     busy: boolean
     error: string | null
     success: string | null
+    requesterLabelById: Record<string, string>
 }
 
 /** Presentation-only view for group settings content. */
@@ -55,6 +57,50 @@ export class FIUGroupView extends FIUView<Props, State> {
         busy: false,
         error: null,
         success: null,
+        requesterLabelById: {},
+    }
+
+    private requesterLabelLoadSeq = 0
+
+    componentDidMount(): void {
+        void this.loadRequesterLabels(this.props.pendingJoinRequests)
+    }
+
+    componentDidUpdate(prevProps: Props): void {
+        if (prevProps.pendingJoinRequests !== this.props.pendingJoinRequests) {
+            void this.loadRequesterLabels(this.props.pendingJoinRequests)
+        }
+    }
+
+    private loadRequesterLabels = async (requests: FIUGroupJoinRequestEntity[]): Promise<void> => {
+        const mySeq = ++this.requesterLabelLoadSeq
+        const requesterIds = Array.from(
+            new Set(
+                (requests ?? [])
+                    .map((r) => r.requester_id)
+                    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+            )
+        )
+
+        if (requesterIds.length === 0) {
+            this.setState({ requesterLabelById: {} })
+            return
+        }
+
+        try {
+            const labels = await FIUProfileModel.fetchLabelsForUsers(requesterIds)
+            if (this.requesterLabelLoadSeq !== mySeq) return
+
+            const next: Record<string, string> = {}
+            requesterIds.forEach((id) => {
+                next[id] = labels.get(id) ?? id
+            })
+            this.setState({ requesterLabelById: next })
+        } catch {
+            if (this.requesterLabelLoadSeq !== mySeq) return
+            // If profile lookups are blocked by RLS, keep showing ids.
+            this.setState({ requesterLabelById: {} })
+        }
     }
 
     /** Clears group-management success and error feedback messages. */
@@ -298,6 +344,7 @@ export class FIUGroupView extends FIUView<Props, State> {
             busy,
             error,
             success,
+            requesterLabelById,
         } = this.state
 
         return (
@@ -373,7 +420,7 @@ export class FIUGroupView extends FIUView<Props, State> {
                                             aria-label="Pending group request"
                                         >
                                             <span className="group-request-user">
-                                                Request from: {request.requester_id}
+                                                Request from: {requesterLabelById[request.requester_id] ?? request.requester_id}
                                             </span>
                                             <button
                                                 type="button"

@@ -13,6 +13,53 @@ export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
     private static joinRequestsTableMissing: boolean | null = null
 
+    /**
+     * Best-effort: if this user has any accepted join requests,
+     * attempt to create their own membership rows.
+     *
+     * This is designed to work with common RLS policies that allow
+     * `group_members` inserts only when `user_id = auth.uid()`.
+     */
+    private static async finalizeAcceptedJoinRequestsForUser(
+        resolvedUserId: string,
+        client: SupabaseClient
+    ): Promise<void> {
+        if (this.joinRequestsTableMissing === true) return
+
+        const { data: accepted, error } = await client
+            .from('group_join_requests')
+            .select('group_id')
+            .eq('requester_id', resolvedUserId)
+            .eq('status', 'accepted')
+
+        if (error) {
+            if (this.isMissingTableError(error, 'group_join_requests')) {
+                this.joinRequestsTableMissing = true
+            }
+            return
+        }
+
+        const groupIds = (accepted ?? [])
+            .map((row) => (row as { group_id?: string | null }).group_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+        if (groupIds.length === 0) return
+
+        // Insert memberships for this user; ignore per-row failures.
+        await Promise.all(
+            groupIds.map(async (groupId) => {
+                const { error: memberErr } = await client.from('group_members').upsert(
+                    { group_id: groupId, user_id: resolvedUserId },
+                    { onConflict: 'group_id,user_id' }
+                )
+
+                if (memberErr && !this.isRlsViolation(memberErr)) {
+                    console.warn('FIUGroupModel.finalizeAcceptedJoinRequestsForUser: upsert failed', memberErr)
+                }
+            })
+        )
+    }
+
     private static isPostgresCode(error: unknown, code: string): boolean {
         if (!error || typeof error !== 'object') return false
         const err = error as { code?: unknown }
@@ -64,6 +111,10 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
     ): Promise<FIUGroupEntity[]> {
         const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) return []
+
+        // If a group owner has accepted any join requests for this user, ensure the membership exists.
+        // This avoids requiring the owner to insert membership rows for other users (often blocked by RLS).
+        await this.finalizeAcceptedJoinRequestsForUser(resolvedUserId, client)
 
         const byId = new Map<string, FIUGroupEntity>()
 
@@ -430,6 +481,24 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             throw new Error('Only the group owner can respond to this request.')
         }
 
+        if (accept) {
+            const { error: memberErr } = await client.from('group_members').upsert(
+                {
+                    group_id: requestRow.group_id,
+                    user_id: requestRow.requester_id,
+                },
+                { onConflict: 'group_id,user_id' }
+            )
+
+            // Many RLS configurations only allow users to insert their *own* membership rows.
+            // If that policy is in place, the upsert will fail for owners adding other users.
+            // In that case, we still accept the request and let the requester finalize membership client-side.
+            if (memberErr && !this.isRlsViolation(memberErr)) {
+                console.error('FIUGroupModel.respondToJoinRequest: membership insert failed', memberErr)
+                throw new Error('Unable to add member to group.')
+            }
+        }
+
         const nextStatus = accept ? 'accepted' : 'declined'
         const { error: updateErr } = await client
             .from('group_join_requests')
@@ -445,20 +514,7 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             throw new Error('Unable to update join request.')
         }
 
-        if (accept) {
-            const { error: memberErr } = await client.from('group_members').upsert(
-                {
-                    group_id: requestRow.group_id,
-                    user_id: requestRow.requester_id,
-                },
-                { onConflict: 'group_id,user_id' }
-            )
-
-            if (memberErr) {
-                console.error('FIUGroupModel.respondToJoinRequest: membership insert failed', memberErr)
-                throw new Error('Request accepted, but unable to add member to group.')
-            }
-        }
+        // Note: membership insertion happens above; status update is the authoritative owner action.
     }
 
     /** Fetches group member rows for the provided group ids. */
