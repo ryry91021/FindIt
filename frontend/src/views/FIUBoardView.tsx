@@ -56,6 +56,10 @@ interface Props {
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToGroupJoinRequest: (requestId: string, accept: boolean) => Promise<void>
+    onLeaveGroup: (groupId: string) => Promise<void>
+    onSetMemberRole: (groupId: string, memberUserId: string, role: 'admin' | 'member') => Promise<void>
+    onRemoveMember: (groupId: string, memberUserId: string) => Promise<void>
+    onTransferOwnership: (groupId: string, newOwnerUserId: string) => Promise<void>
     onCreateGeofence: (name: string, centerLat: number, centerLon: number, radiusMeters: number) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
@@ -80,6 +84,8 @@ type State = {
     boardActionSuccess: string | null
     boardActionBusy: boolean
     confirmBoardDeleteOpen: boolean
+    groupVisibilityById: Record<string, boolean>
+    visibilityUserId: string | null
 }
 
 /**
@@ -104,10 +110,102 @@ export class FIUBoardView extends FIUView<Props, State> {
         boardActionSuccess: null,
         boardActionBusy: false,
         confirmBoardDeleteOpen: false,
+        groupVisibilityById: {},
+        visibilityUserId: null,
     }
 
     private mapContainerRef = createRef<HTMLDivElement>()
+    private sidebarRef = createRef<HTMLElement>()
     private mapView = new FIUMapView()
+
+    private getVisibilityStorageKey(userId: string | null | undefined): string {
+        return `findit.groupVisibility.${userId ?? 'anon'}`
+    }
+
+    private loadVisibilityFromStorage(userId: string | null | undefined): Record<string, boolean> {
+        try {
+            const raw = window.localStorage.getItem(this.getVisibilityStorageKey(userId))
+            if (!raw) return {}
+            const parsed = JSON.parse(raw) as unknown
+            if (!parsed || typeof parsed !== 'object') return {}
+            const result: Record<string, boolean> = {}
+            Object.entries(parsed as Record<string, unknown>).forEach(([k, v]) => {
+                if (typeof v === 'boolean') result[k] = v
+            })
+            return result
+        } catch {
+            return {}
+        }
+    }
+
+    private saveVisibilityToStorage(userId: string | null | undefined, map: Record<string, boolean>): void {
+        try {
+            window.localStorage.setItem(this.getVisibilityStorageKey(userId), JSON.stringify(map))
+        } catch {
+            // ignore
+        }
+    }
+
+    private syncVisibilityForUser = (userId: string | null | undefined, groups: FIUGroupEntity[]) => {
+        const stored = this.loadVisibilityFromStorage(userId)
+        const next: Record<string, boolean> = { ...stored }
+
+        // Default visibility is ON for any group not in storage.
+        ;(groups ?? []).forEach((g) => {
+            if (!g?.id) return
+            if (typeof next[g.id] !== 'boolean') next[g.id] = true
+        })
+
+        this.saveVisibilityToStorage(userId, next)
+
+        this.setState(
+            {
+                groupVisibilityById: next,
+                visibilityUserId: userId ?? null,
+            },
+            () => {
+                this.renderMap()
+            }
+        )
+    }
+
+    private isGroupVisible = (groupId: string | null | undefined): boolean => {
+        if (!groupId) return true
+        return this.state.groupVisibilityById[groupId] !== false
+    }
+
+    private getFilteredInputs(): {
+        boards: FIUBoardEntity[]
+        locations: FIULocationRecordEntity[]
+        geofences: FIUGeofenceEntity[]
+    } {
+        const boards = this.props.boards ?? []
+        const locations = this.props.locations ?? []
+        const geofences = this.props.geofences ?? []
+
+        const boardById = new Map<string, FIUBoardEntity>()
+        boards.forEach((b) => {
+            boardById.set(b.id, b)
+        })
+
+        const visibleBoards = boards.filter((b) => this.isGroupVisible(b.group_id ?? null))
+
+        const visibleLocations = locations.filter((loc) => {
+            const board = boardById.get(loc.device_id)
+            const groupId = board?.group_id ?? null
+            return this.isGroupVisible(groupId)
+        })
+
+        const visibleGeofences = geofences.filter((g) => this.isGroupVisible(g.group_id ?? null))
+
+        return { boards: visibleBoards, locations: visibleLocations, geofences: visibleGeofences }
+    }
+
+    private renderMap(): void {
+        const { boards, locations, geofences } = this.getFilteredInputs()
+        this.mapView.render(boards, locations)
+        this.mapView.renderGeofences(geofences)
+    }
 
     /** Opens or closes the left sidebar drawer. */
     private toggleSidebar = () => {
@@ -116,12 +214,22 @@ export class FIUBoardView extends FIUView<Props, State> {
 
     /** Closes the left sidebar drawer. */
     private closeSidebar = () => {
+        // Avoid hiding focused elements from assistive tech.
+        // If focus is currently inside the sidebar, move it to a safe element before applying aria-hidden.
+        const activeEl = document.activeElement
+        if (activeEl && this.sidebarRef.current?.contains(activeEl)) {
+            this.mapContainerRef.current?.focus()
+        }
         this.setState({ sidebarOpen: false })
     }
 
     /** Opens the sidebar modal for a selected menu action. */
     private openModalForAction = (action: SidebarModalAction) => {
         this.props.onSidebarAction(action)
+        const activeEl = document.activeElement
+        if (activeEl && this.sidebarRef.current?.contains(activeEl)) {
+            this.mapContainerRef.current?.focus()
+        }
         this.setState({
             sidebarOpen: false,
             modalOpen: true,
@@ -479,8 +587,7 @@ export class FIUBoardView extends FIUView<Props, State> {
             this.mapView.init(container)
         }
 
-        this.mapView.render(this.props.boards, this.props.locations)
-        this.mapView.renderGeofences(this.props.geofences)
+        this.syncVisibilityForUser(this.props.userId ?? null, this.props.groups)
         window.addEventListener('keydown', this.onWindowKeyDown)
     }
 
@@ -492,13 +599,33 @@ export class FIUBoardView extends FIUView<Props, State> {
 
     /** Re-renders map markers when boards or locations props change. */
     componentDidUpdate(prevProps: Props): void {
-        if (prevProps.boards !== this.props.boards || prevProps.locations !== this.props.locations) {
-            this.mapView.render(this.props.boards, this.props.locations)
+        if (prevProps.userId !== this.props.userId) {
+            this.syncVisibilityForUser(this.props.userId ?? null, this.props.groups)
+            return
         }
 
-        if (prevProps.geofences !== this.props.geofences) {
-            this.mapView.renderGeofences(this.props.geofences)
+        if (prevProps.groups !== this.props.groups) {
+            // Ensure newly loaded groups default to visible.
+            this.syncVisibilityForUser(this.state.visibilityUserId ?? this.props.userId ?? null, this.props.groups)
+            return
         }
+
+        if (prevProps.boards !== this.props.boards || prevProps.locations !== this.props.locations || prevProps.geofences !== this.props.geofences) {
+            this.renderMap()
+        }
+    }
+
+    private handleSetGroupVisibility = (groupId: string, visible: boolean) => {
+        this.setState(
+            (prev) => {
+                const next = { ...prev.groupVisibilityById, [groupId]: visible }
+                return { groupVisibilityById: next }
+            },
+            () => {
+                this.saveVisibilityToStorage(this.state.visibilityUserId ?? this.props.userId ?? null, this.state.groupVisibilityById)
+                this.renderMap()
+            }
+        )
     }
 
     /** Renders the map and board status list. */
@@ -510,7 +637,7 @@ export class FIUBoardView extends FIUView<Props, State> {
         return (
             <div className="dashboard-root">
                 {/* Map */}
-                <div ref={this.mapContainerRef} className="map-container" />
+                <div ref={this.mapContainerRef} className="map-container" tabIndex={-1} />
 
                 {/* Top-left hamburger */}
                 {!sidebarOpen && (
@@ -545,6 +672,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                     id="dashboard-sidebar"
                     className={`sidebar-drawer ${sidebarOpen ? 'open' : ''}`}
                     aria-hidden={!sidebarOpen}
+                    ref={this.sidebarRef}
                 >
                     <div className="sidebar-header">
                         <strong>Menu</strong>
@@ -653,6 +781,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                             />
                         ) : activeModalAction === 'group-settings' ? (
                             <FIUGroupView
+                                userId={this.props.userId}
                                 groups={this.props.groups}
                                 boards={this.props.boards}
                                 groupMembers={this.props.groupMembers}
@@ -663,6 +792,12 @@ export class FIUBoardView extends FIUView<Props, State> {
                                 onUpdateGroupBoards={this.props.onUpdateGroupBoards}
                                 onJoinGroup={this.props.onJoinGroup}
                                 onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
+                                onLeaveGroup={this.props.onLeaveGroup}
+                                onSetMemberRole={this.props.onSetMemberRole}
+                                onRemoveMember={this.props.onRemoveMember}
+                                onTransferOwnership={this.props.onTransferOwnership}
+                                groupVisibilityById={this.state.groupVisibilityById}
+                                onSetGroupVisibility={this.handleSetGroupVisibility}
                             />
                         ) : (
                             <p>

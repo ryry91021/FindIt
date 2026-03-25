@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FIUProfileModel } from '../models/FIUProfileModel'
 
 type Props = {
+    userId?: string
     groups: FIUGroupEntity[]
     boards: FIUBoardEntity[]
     groupMembers: FIUGroupMemberEntity[]
@@ -18,6 +19,12 @@ type Props = {
     onUpdateGroupBoards: (groupId: string, boardIds: string[]) => Promise<void>
     onJoinGroup: (groupId: string) => Promise<void>
     onRespondToJoinRequest: (requestId: string, accept: boolean) => Promise<void>
+    onLeaveGroup: (groupId: string) => Promise<void>
+    onSetMemberRole: (groupId: string, memberUserId: string, role: 'admin' | 'member') => Promise<void>
+    onRemoveMember: (groupId: string, memberUserId: string) => Promise<void>
+    onTransferOwnership: (groupId: string, newOwnerUserId: string) => Promise<void>
+    groupVisibilityById: Record<string, boolean>
+    onSetGroupVisibility: (groupId: string, visible: boolean) => void
 }
 
 type State = {
@@ -37,6 +44,8 @@ type State = {
     error: string | null
     success: string | null
     requesterLabelById: Record<string, string>
+    transferGroupId: string | null
+    transferToUserId: string
 }
 
 /** Presentation-only view for group settings content. */
@@ -58,6 +67,8 @@ export class FIUGroupView extends FIUView<Props, State> {
         error: null,
         success: null,
         requesterLabelById: {},
+        transferGroupId: null,
+        transferToUserId: '',
     }
 
     private requesterLabelLoadSeq = 0
@@ -345,7 +356,37 @@ export class FIUGroupView extends FIUView<Props, State> {
             error,
             success,
             requesterLabelById,
+            transferGroupId,
+            transferToUserId,
         } = this.state
+
+        const getOwnerIdForGroup = (group: FIUGroupEntity): string | null => {
+            const direct = group.created_by
+            if (typeof direct === 'string' && direct.length > 0) return direct
+            const fallbackOwner = (groupMembers ?? []).find((m) => m.group_id === group.id && m.role === 'owner')
+            return fallbackOwner?.user_id ?? null
+        }
+
+        const getMyRoleForGroup = (group: FIUGroupEntity): 'owner' | 'admin' | 'member' => {
+            const me = this.props.userId
+            if (!me) return 'member'
+            const ownerId = getOwnerIdForGroup(group)
+            if (ownerId && ownerId === me) return 'owner'
+            const membership = (groupMembers ?? []).find((m) => m.group_id === group.id && m.user_id === me)
+            if (membership?.role === 'admin') return 'admin'
+            if (membership?.role === 'owner') return 'owner'
+            return 'member'
+        }
+
+        const getDisplayRoleForMember = (group: FIUGroupEntity, member: FIUGroupMemberEntity): 'owner' | 'admin' | 'member' => {
+            const ownerId = getOwnerIdForGroup(group)
+            if (ownerId && member.user_id === ownerId) return 'owner'
+            if (member.role === 'admin') return 'admin'
+            if (member.role === 'owner') return 'owner'
+            return 'member'
+        }
+
+        const canModerate = (role: 'owner' | 'admin' | 'member') => role === 'owner' || role === 'admin'
 
         return (
             <>
@@ -362,11 +403,23 @@ export class FIUGroupView extends FIUView<Props, State> {
                                     {/* <span className="group-item-id">UUID: {group.id}</span> */}
                                 </div>
                                 <div className="group-item-actions">
+                                    <label className="geofence-toggle" style={{ marginRight: 12 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={this.props.groupVisibilityById[group.id] !== false}
+                                            onChange={(e) => this.props.onSetGroupVisibility(group.id, e.target.checked)}
+                                        />
+                                        <span className="geofence-toggle-label">
+                                            {this.props.groupVisibilityById[group.id] === false ? 'Off' : 'On'}
+                                        </span>
+                                    </label>
+
                                     <button
                                         type="button"
                                         className="board-management-button"
                                         onClick={() => this.openEditModal(group)}
-                                        disabled={busy}
+                                        disabled={busy || !canModerate(getMyRoleForGroup(group))}
+                                        style={{ display: canModerate(getMyRoleForGroup(group)) ? undefined : 'none' }}
                                     >
                                         Edit
                                     </button>
@@ -375,6 +428,7 @@ export class FIUGroupView extends FIUView<Props, State> {
                                         className="board-management-danger"
                                         onClick={() => this.openGroupDeleteConfirm(group.id)}
                                         disabled={busy}
+                                        style={{ display: getMyRoleForGroup(group) === 'owner' ? undefined : 'none' }}
                                     >
                                         Remove
                                     </button>
@@ -387,9 +441,48 @@ export class FIUGroupView extends FIUView<Props, State> {
                                             }))
                                         }
                                         disabled={busy}
+                                        style={{ display: canModerate(getMyRoleForGroup(group)) ? undefined : 'none' }}
                                     >
                                         Share
                                     </button>
+
+                                    {getMyRoleForGroup(group) !== 'owner' ? (
+                                        <button
+                                            type="button"
+                                            className="board-management-danger"
+                                            onClick={async () => {
+                                                try {
+                                                    this.setBusy(true)
+                                                    this.clearFeedback()
+                                                    await this.props.onLeaveGroup(group.id)
+                                                    this.setState({ success: 'Left group.' })
+                                                } catch (err) {
+                                                    this.setState({
+                                                        error: this.getErrorMessage(err, 'Unable to leave group.'),
+                                                    })
+                                                } finally {
+                                                    this.setBusy(false)
+                                                }
+                                            }}
+                                            disabled={busy}
+                                        >
+                                            Leave
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="board-management-button"
+                                            onClick={() =>
+                                                this.setState((prev) => ({
+                                                    transferGroupId: prev.transferGroupId === group.id ? null : group.id,
+                                                    transferToUserId: '',
+                                                }))
+                                            }
+                                            disabled={busy}
+                                        >
+                                            Transfer
+                                        </button>
+                                    )}
                                 </div>
 
                                 {shareGroupId === group.id && (
@@ -413,6 +506,7 @@ export class FIUGroupView extends FIUView<Props, State> {
 
                                 {pendingJoinRequests
                                     .filter((request) => request.group_id === group.id)
+                                    .filter(() => canModerate(getMyRoleForGroup(group)))
                                     .map((request) => (
                                         <div
                                             key={request.id}
@@ -445,18 +539,161 @@ export class FIUGroupView extends FIUView<Props, State> {
                                         </div>
                                     ))}
 
+                                {transferGroupId === group.id && getMyRoleForGroup(group) === 'owner' && (
+                                    <div className="group-share-panel" aria-label="Transfer ownership panel">
+                                        <span className="group-item-id">Transfer ownership to:</span>
+                                        <select
+                                            className="board-management-input board-edit-compact"
+                                            value={transferToUserId}
+                                            onChange={(e) => this.setState({ transferToUserId: e.target.value })}
+                                            disabled={busy}
+                                        >
+                                            <option value="">Select admin</option>
+                                            {groupMembers
+                                                .filter((m) => m.group_id === group.id)
+                                                .filter((m) => getDisplayRoleForMember(group, m) === 'admin')
+                                                .map((m) => (
+                                                    <option key={m.user_id} value={m.user_id}>
+                                                        {m.user_name}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            className="board-management-danger"
+                                            onClick={async () => {
+                                                try {
+                                                    this.setBusy(true)
+                                                    this.clearFeedback()
+                                                    await this.props.onTransferOwnership(group.id, transferToUserId)
+                                                    this.setState({ success: 'Ownership transferred.', transferGroupId: null, transferToUserId: '' })
+                                                } catch (err) {
+                                                    this.setState({
+                                                        error: this.getErrorMessage(err, 'Unable to transfer ownership.'),
+                                                    })
+                                                } finally {
+                                                    this.setBusy(false)
+                                                }
+                                            }}
+                                            disabled={busy || !transferToUserId}
+                                        >
+                                            Confirm
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="group-members-row" aria-label="Group users">
                                     <span className="group-request-user">Users in group:</span>
                                     {groupMembers.filter((member) => member.group_id === group.id).length === 0 ? (
                                         <span className="board-management-placeholder">No users yet.</span>
                                     ) : (
-                                        groupMembers
-                                            .filter((member) => member.group_id === group.id)
-                                            .map((member) => (
-                                                <span key={`${member.group_id}-${member.user_id}`} className="group-member-pill">
-                                                    {member.user_name}
-                                                </span>
-                                            ))
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {groupMembers
+                                                .filter((member) => member.group_id === group.id)
+                                                .map((member) => {
+                                                    const myRole = getMyRoleForGroup(group)
+                                                    const targetRole = getDisplayRoleForMember(group, member)
+                                                    const canEditMembers = canModerate(myRole)
+                                                    const isSelf = this.props.userId && member.user_id === this.props.userId
+
+                                                    const canPromote =
+                                                        canEditMembers &&
+                                                        targetRole === 'member' &&
+                                                        !isSelf
+
+                                                    const canDemote =
+                                                        myRole === 'owner' &&
+                                                        targetRole === 'admin' &&
+                                                        !isSelf
+
+                                                    const canRemove =
+                                                        !isSelf &&
+                                                        ((myRole === 'owner' && (targetRole === 'admin' || targetRole === 'member')) ||
+                                                            (myRole === 'admin' && targetRole === 'member'))
+
+                                                    return (
+                                                        <div
+                                                            key={`${member.group_id}-${member.user_id}`}
+                                                            style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                                                        >
+                                                            <span className="group-member-pill">{member.user_name}</span>
+                                                            <span className="group-board-pill">{targetRole}</span>
+
+                                                            {canPromote && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="board-management-button"
+                                                                    disabled={busy}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            this.setBusy(true)
+                                                                            this.clearFeedback()
+                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'admin')
+                                                                            this.setState({ success: 'Member promoted.' })
+                                                                        } catch (err) {
+                                                                            this.setState({
+                                                                                error: this.getErrorMessage(err, 'Unable to promote member.'),
+                                                                            })
+                                                                        } finally {
+                                                                            this.setBusy(false)
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Make admin
+                                                                </button>
+                                                            )}
+
+                                                            {canDemote && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="board-management-button"
+                                                                    disabled={busy}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            this.setBusy(true)
+                                                                            this.clearFeedback()
+                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'member')
+                                                                            this.setState({ success: 'Admin demoted.' })
+                                                                        } catch (err) {
+                                                                            this.setState({
+                                                                                error: this.getErrorMessage(err, 'Unable to demote admin.'),
+                                                                            })
+                                                                        } finally {
+                                                                            this.setBusy(false)
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Make member
+                                                                </button>
+                                                            )}
+
+                                                            {canRemove && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="board-management-danger"
+                                                                    disabled={busy}
+                                                                    onClick={async () => {
+                                                                        try {
+                                                                            this.setBusy(true)
+                                                                            this.clearFeedback()
+                                                                            await this.props.onRemoveMember(group.id, member.user_id)
+                                                                            this.setState({ success: 'Member removed.' })
+                                                                        } catch (err) {
+                                                                            this.setState({
+                                                                                error: this.getErrorMessage(err, 'Unable to remove member.'),
+                                                                            })
+                                                                        } finally {
+                                                                            this.setBusy(false)
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                        </div>
                                     )}
                                 </div>
 

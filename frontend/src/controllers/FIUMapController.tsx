@@ -253,6 +253,26 @@ export class FIUMapController extends FIUController<Props, State> {
         await this.refreshAll()
     }
 
+    private handleLeaveGroup = async (groupId: string): Promise<void> => {
+        await this.groupsController.leaveGroup(groupId, this.props.userId)
+        await this.refreshAll()
+    }
+
+    private handleSetMemberRole = async (groupId: string, memberUserId: string, role: 'admin' | 'member'): Promise<void> => {
+        await this.groupsController.setMemberRole(groupId, memberUserId, role)
+        await this.refreshAll()
+    }
+
+    private handleRemoveMember = async (groupId: string, memberUserId: string): Promise<void> => {
+        await this.groupsController.removeMember(groupId, memberUserId)
+        await this.refreshAll()
+    }
+
+    private handleTransferOwnership = async (groupId: string, newOwnerUserId: string): Promise<void> => {
+        await this.groupsController.transferOwnership(groupId, newOwnerUserId, this.props.userId)
+        await this.refreshAll()
+    }
+
     /** Signs out the user and notifies the app shell. */
     private handleSignOut = async (): Promise<void> => {
         await authService.signOut()
@@ -294,6 +314,10 @@ export class FIUMapController extends FIUController<Props, State> {
                 onUpdateGroupBoards={this.handleUpdateGroupBoards}
                 onJoinGroup={this.handleJoinGroup}
                 onRespondToGroupJoinRequest={this.handleRespondToGroupJoinRequest}
+                onLeaveGroup={this.handleLeaveGroup}
+                onSetMemberRole={this.handleSetMemberRole}
+                onRemoveMember={this.handleRemoveMember}
+                onTransferOwnership={this.handleTransferOwnership}
                 onCreateGeofence={this.handleCreateGeofence}
                 onUpdateGeofence={this.handleUpdateGeofence}
                 onToggleGeofenceEnabled={this.handleToggleGeofenceEnabled}

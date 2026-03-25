@@ -30,6 +30,7 @@ describe('FIUBoardView', () => {
             recorded_at: '2026-02-10T00:00:00.000Z',
           },
         ]}
+        geofences={[]}
         error={null}
         groups={[]}
         groupMembers={[]}
@@ -46,6 +47,13 @@ describe('FIUBoardView', () => {
         onUpdateGroupBoards={vi.fn(async () => {})}
         onJoinGroup={vi.fn(async () => {})}
         onRespondToGroupJoinRequest={vi.fn(async () => {})}
+        onLeaveGroup={vi.fn(async () => {})}
+        onSetMemberRole={vi.fn(async () => {})}
+        onRemoveMember={vi.fn(async () => {})}
+        onTransferOwnership={vi.fn(async () => {})}
+        onCreateGeofence={vi.fn(async () => {})}
+        onUpdateGeofence={vi.fn(async () => {})}
+        onToggleGeofenceEnabled={vi.fn(async () => {})}
       />
     )
 
@@ -73,6 +81,7 @@ describe('FIUBoardView', () => {
             recorded_at: '2026-02-10T00:00:00.000Z',
           },
         ]}
+        geofences={[]}
         error={null}
         groups={[]}
         groupMembers={[]}
@@ -89,6 +98,13 @@ describe('FIUBoardView', () => {
         onUpdateGroupBoards={vi.fn(async () => {})}
         onJoinGroup={vi.fn(async () => {})}
         onRespondToGroupJoinRequest={vi.fn(async () => {})}
+        onLeaveGroup={vi.fn(async () => {})}
+        onSetMemberRole={vi.fn(async () => {})}
+        onRemoveMember={vi.fn(async () => {})}
+        onTransferOwnership={vi.fn(async () => {})}
+        onCreateGeofence={vi.fn(async () => {})}
+        onUpdateGeofence={vi.fn(async () => {})}
+        onToggleGeofenceEnabled={vi.fn(async () => {})}
       />
     )
 
@@ -116,6 +132,7 @@ describe('FIUBoardView', () => {
           },
         ]}
         error={null}
+        geofences={[]}
         groups={[{ id: 'g1', name: 'Group One' }]}
         groupMembers={[]}
         pendingGroupJoinRequests={[]}
@@ -131,6 +148,13 @@ describe('FIUBoardView', () => {
         onUpdateGroupBoards={vi.fn(async () => {})}
         onJoinGroup={vi.fn(async () => {})}
         onRespondToGroupJoinRequest={vi.fn(async () => {})}
+        onLeaveGroup={vi.fn(async () => {})}
+        onSetMemberRole={vi.fn(async () => {})}
+        onRemoveMember={vi.fn(async () => {})}
+        onTransferOwnership={vi.fn(async () => {})}
+        onCreateGeofence={vi.fn(async () => {})}
+        onUpdateGeofence={vi.fn(async () => {})}
+        onToggleGeofenceEnabled={vi.fn(async () => {})}
       />
     )
 
@@ -156,6 +180,7 @@ describe('FIUBoardView', () => {
         userEmail="a@b.com"
         boards={[{ id: 'd1', display_name: 'Board 1', device_eui: 'EUI-1' }]}
         locations={[]}
+        geofences={[]}
         groups={[{ id: 'g1', name: 'Group One' }]}
         groupMembers={[]}
         pendingGroupJoinRequests={[]}
@@ -172,6 +197,13 @@ describe('FIUBoardView', () => {
         onUpdateGroupBoards={vi.fn(async () => {})}
         onJoinGroup={vi.fn(async () => {})}
         onRespondToGroupJoinRequest={vi.fn(async () => {})}
+        onLeaveGroup={vi.fn(async () => {})}
+        onSetMemberRole={vi.fn(async () => {})}
+        onRemoveMember={vi.fn(async () => {})}
+        onTransferOwnership={vi.fn(async () => {})}
+        onCreateGeofence={vi.fn(async () => {})}
+        onUpdateGeofence={vi.fn(async () => {})}
+        onToggleGeofenceEnabled={vi.fn(async () => {})}
       />
     )
 

@@ -35,4 +35,20 @@ export class FIUGroupsController {
     async respondToJoinRequest(requestId: string, accept: boolean, userId?: string): Promise<void> {
         await FIUGroupModel.respondToJoinRequest(requestId, accept, userId)
     }
+
+    async leaveGroup(groupId: string, userId?: string): Promise<void> {
+        await FIUGroupModel.leaveGroup(groupId, userId)
+    }
+
+    async setMemberRole(groupId: string, memberUserId: string, role: 'admin' | 'member'): Promise<void> {
+        await FIUGroupModel.setMemberRole(groupId, memberUserId, role)
+    }
+
+    async removeMember(groupId: string, memberUserId: string): Promise<void> {
+        await FIUGroupModel.removeMember(groupId, memberUserId)
+    }
+
+    async transferOwnership(groupId: string, newOwnerUserId: string, userId?: string): Promise<void> {
+        await FIUGroupModel.transferOwnership(groupId, newOwnerUserId, userId)
+    }
 }

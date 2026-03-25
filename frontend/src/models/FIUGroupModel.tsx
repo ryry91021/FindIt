@@ -3,6 +3,7 @@ import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type {
     FIUGroupJoinRequestEntity,
     FIUGroupMemberEntity,
+    FIUGroupRole,
 } from '../entities/FIUGroupMembershipEntities'
 import { supabase } from '../services/supabaseClient'
 import { FIUModel } from './FIUModel'
@@ -12,6 +13,10 @@ export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 /** Model wrapper for group entities and group data access methods. */
 export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
     private static joinRequestsTableMissing: boolean | null = null
+
+    private static isGroupRole(value: unknown): value is FIUGroupRole {
+        return value === 'owner' || value === 'admin' || value === 'member'
+    }
 
     /**
      * Best-effort: if this user has any accepted join requests,
@@ -120,18 +125,19 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
 
         const { data: ownedGroups, error: ownedErr } = await client
             .from('groups')
-            .select('id, name')
+            .select('id, name, created_by')
             .eq('created_by', resolvedUserId)
 
         if (ownedErr) {
             console.warn('FIUGroupModel.fetchGroupsForUser: groups query failed', ownedErr)
         } else {
             ;(ownedGroups ?? []).forEach((row) => {
-                const item = row as { id?: string | null; name?: string | null }
+                const item = row as { id?: string | null; name?: string | null; created_by?: string | null }
                 if (!item.id) return
                 byId.set(item.id, {
                     id: item.id,
                     name: item.name ?? 'Untitled Group',
+                    created_by: item.created_by ?? resolvedUserId,
                 })
             })
         }
@@ -153,7 +159,7 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         if (memberGroupIds.length > 0) {
             const { data: memberGroups, error: groupsErr } = await client
                 .from('groups')
-                .select('id, name')
+                .select('id, name, created_by')
                 .in('id', memberGroupIds)
 
             if (groupsErr) {
@@ -163,11 +169,12 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
                 )
             } else {
                 ;(memberGroups ?? []).forEach((row) => {
-                    const item = row as { id?: string | null; name?: string | null }
+                    const item = row as { id?: string | null; name?: string | null; created_by?: string | null }
                     if (!item.id) return
                     byId.set(item.id, {
                         id: item.id,
                         name: item.name ?? 'Untitled Group',
+                        created_by: item.created_by ?? null,
                     })
                 })
             }
@@ -256,6 +263,7 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         return {
             id: row.id,
             name: row.name,
+            created_by: resolvedUserId,
         }
     }
 
@@ -344,6 +352,26 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             throw new Error('You are already a member of this group.')
         }
 
+        // If a previous request was already accepted, don't create a new pending row.
+        // This avoids conflicts with UNIQUE(group_id, requester_id, status).
+        const { data: acceptedRequest, error: acceptedErr } = await client
+            .from('group_join_requests')
+            .select('id')
+            .eq('group_id', groupId)
+            .eq('requester_id', resolvedUserId)
+            .eq('status', 'accepted')
+            .maybeSingle()
+
+        if (acceptedErr && this.isMissingTableError(acceptedErr, 'group_join_requests')) {
+            this.joinRequestsTableMissing = true
+            throw new Error('Group join requests are not enabled (missing `group_join_requests` table).')
+        }
+
+        if (acceptedRequest) {
+            // Let the caller refresh; fetchGroupsForUser() will finalize membership best-effort.
+            return
+        }
+
         const { data: pendingRequest, error: pendingErr } = await client
             .from('group_join_requests')
             .select('id')
@@ -383,6 +411,11 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
                 throw new Error('Unable to send join request (not permitted by policy).')
             }
 
+            // Idempotency: if the DB reports the request already exists, treat as success.
+            if (this.isPostgresCode(error, '23505')) {
+                return
+            }
+
             console.error('FIUGroupModel.requestJoinGroup: insert failed', error)
             throw new Error('Unable to send join request.')
         }
@@ -398,6 +431,9 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) return []
 
+        const groupIds = new Set<string>()
+
+        // Owner groups.
         const { data: ownedGroups, error: ownedErr } = await client
             .from('groups')
             .select('id')
@@ -405,19 +441,39 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
 
         if (ownedErr) {
             console.warn('FIUGroupModel.fetchPendingJoinRequests: groups query failed', ownedErr)
-            return []
+        } else {
+            ;(ownedGroups ?? [])
+                .map((row) => (row as { id?: string | null }).id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0)
+                .forEach((id) => groupIds.add(id))
         }
 
-        const groupIds = (ownedGroups ?? [])
-            .map((row) => (row as { id?: string | null }).id)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        // Admin-managed groups (requires group_members.role).
+        const { data: adminMemberships, error: adminErr } = await client
+            .from('group_members')
+            .select('group_id, role')
+            .eq('user_id', resolvedUserId)
 
-        if (groupIds.length === 0) return []
+        if (adminErr) {
+            if (!this.isMissingColumnError(adminErr)) {
+                console.warn('FIUGroupModel.fetchPendingJoinRequests: group_members query failed', adminErr)
+            }
+        } else {
+            ;(adminMemberships ?? []).forEach((row) => {
+                const item = row as { group_id?: string | null; role?: unknown }
+                if (!item.group_id) return
+                const role = this.isGroupRole(item.role) ? item.role : null
+                if (role === 'owner' || role === 'admin') groupIds.add(item.group_id)
+            })
+        }
+
+        const ids = Array.from(groupIds)
+        if (ids.length === 0) return []
 
         const { data: requests, error } = await client
             .from('group_join_requests')
             .select('id, group_id, requester_id, status')
-            .in('group_id', groupIds)
+            .in('group_id', ids)
             .eq('status', 'pending')
 
         if (error) {
@@ -465,20 +521,81 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
 
         const requestRow = request as FIUGroupJoinRequestEntity
 
-        const { data: ownerGroup, error: ownerErr } = await client
-            .from('groups')
-            .select('id')
-            .eq('id', requestRow.group_id)
-            .eq('created_by', resolvedUserId)
+        // Allow group owner or admin to moderate join requests.
+        let canModerate = false
+        const { data: myMembership, error: membershipErr } = await client
+            .from('group_members')
+            .select('role')
+            .eq('group_id', requestRow.group_id)
+            .eq('user_id', resolvedUserId)
             .maybeSingle()
 
-        if (ownerErr) {
-            console.error('FIUGroupModel.respondToJoinRequest: ownership lookup failed', ownerErr)
+        if (membershipErr) {
+            console.error('FIUGroupModel.respondToJoinRequest: membership lookup failed', membershipErr)
             throw new Error('Unable to verify group permissions.')
         }
 
-        if (!ownerGroup) {
-            throw new Error('Only the group owner can respond to this request.')
+        const myRole = this.isGroupRole((myMembership as { role?: unknown } | null)?.role)
+            ? ((myMembership as { role?: FIUGroupRole } | null)?.role ?? null)
+            : null
+
+        if (myRole === 'owner' || myRole === 'admin') {
+            canModerate = true
+        } else {
+            // Backward-compatible: if role column isn't populated, allow the group creator.
+            const { data: ownerGroup, error: ownerErr } = await client
+                .from('groups')
+                .select('id')
+                .eq('id', requestRow.group_id)
+                .eq('created_by', resolvedUserId)
+                .maybeSingle()
+
+            if (ownerErr) {
+                console.error('FIUGroupModel.respondToJoinRequest: ownership lookup failed', ownerErr)
+                throw new Error('Unable to verify group permissions.')
+            }
+
+            canModerate = Boolean(ownerGroup)
+        }
+
+        if (!canModerate) {
+            throw new Error('Only group owners and admins can respond to this request.')
+        }
+
+        // If this request is pending but an accepted row already exists for the same
+        // (group_id, requester_id), treat the operation as idempotent and clean up the duplicate.
+        // This avoids 23505 conflicts on UNIQUE(group_id, requester_id, status).
+        if (accept && requestRow.status === 'pending') {
+            const { data: existingAccepted, error: acceptedErr } = await client
+                .from('group_join_requests')
+                .select('id')
+                .eq('group_id', requestRow.group_id)
+                .eq('requester_id', requestRow.requester_id)
+                .eq('status', 'accepted')
+                .maybeSingle()
+
+            if (acceptedErr) {
+                if (this.isMissingTableError(acceptedErr, 'group_join_requests')) {
+                    this.joinRequestsTableMissing = true
+                    throw new Error('Group join requests are not enabled.')
+                }
+                if (!this.isRlsViolation(acceptedErr)) {
+                    console.warn('FIUGroupModel.respondToJoinRequest: accepted lookup failed', acceptedErr)
+                }
+            }
+
+            if (existingAccepted) {
+                const { error: deleteErr } = await client
+                    .from('group_join_requests')
+                    .delete()
+                    .eq('id', requestId)
+
+                if (deleteErr && !this.isRlsViolation(deleteErr)) {
+                    console.warn('FIUGroupModel.respondToJoinRequest: duplicate cleanup failed', deleteErr)
+                }
+
+                return
+            }
         }
 
         if (accept) {
@@ -500,18 +617,52 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         }
 
         const nextStatus = accept ? 'accepted' : 'declined'
-        const { error: updateErr } = await client
+        const { data: updatedRows, error: updateErr } = await client
             .from('group_join_requests')
             .update({ status: nextStatus })
             .eq('id', requestId)
+            .eq('status', 'pending')
+            .select('id')
 
         if (updateErr) {
             if (this.isMissingTableError(updateErr, 'group_join_requests')) {
                 this.joinRequestsTableMissing = true
                 throw new Error('Group join requests are not enabled.')
             }
+            if (this.isMissingColumnError(updateErr)) {
+                console.error('FIUGroupModel.respondToJoinRequest: status column missing?', updateErr)
+                throw new Error('Unable to update join request (missing required column).')
+            }
+
+            // Some schemas enforce uniqueness across (group_id, requester_id, status) and can
+            // throw when an older accepted/declined row already exists. Treat as already processed.
+            if (this.isPostgresCode(updateErr, '23505')) {
+                const { error: deleteErr } = await client
+                    .from('group_join_requests')
+                    .delete()
+                    .eq('id', requestId)
+
+                if (deleteErr && !this.isRlsViolation(deleteErr)) {
+                    console.warn(
+                        'FIUGroupModel.respondToJoinRequest: unable to delete duplicate request',
+                        deleteErr
+                    )
+                }
+
+                return
+            }
+
+            if (this.isRlsViolation(updateErr)) {
+                throw new Error('Unable to update join request (not permitted by policy).')
+            }
             console.error('FIUGroupModel.respondToJoinRequest: status update failed', updateErr)
             throw new Error('Unable to update join request.')
+        }
+
+        // If we could read the request but the update affected 0 rows, it was either
+        // already processed, or blocked by an UPDATE policy predicate.
+        if (!updatedRows || updatedRows.length === 0) {
+            throw new Error('Unable to update join request (not permitted by policy or already processed).')
         }
 
         // Note: membership insertion happens above; status update is the authoritative owner action.
@@ -524,17 +675,27 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
     ): Promise<FIUGroupMemberEntity[]> {
         if (groupIds.length === 0) return []
 
-        const { data, error } = await client
-            .from('group_members')
-            .select('group_id, user_id')
-            .in('group_id', groupIds)
+        const selectVariants = ['group_id, user_id, role', 'group_id, user_id']
+        let data: unknown[] | null = null
+        let lastError: unknown = null
 
-        if (error) {
-            console.warn('FIUGroupModel.fetchMembersForGroups: query failed', error)
+        for (const select of selectVariants) {
+            const res = await client.from('group_members').select(select).in('group_id', groupIds)
+            if (!res.error) {
+                data = (res.data ?? []) as unknown[]
+                lastError = null
+                break
+            }
+            lastError = res.error
+            if (!this.isMissingColumnError(res.error)) break
+        }
+
+        if (lastError) {
+            console.warn('FIUGroupModel.fetchMembersForGroups: query failed', lastError)
             return []
         }
 
-        const rows = (data ?? []) as Array<{ group_id: string; user_id: string }>
+        const rows = (data ?? []) as Array<{ group_id: string; user_id: string; role?: unknown }>
         const uniqueUserIds = Array.from(
             new Set(rows.map((row) => row.user_id).filter((id) => typeof id === 'string' && id.length > 0))
         )
@@ -596,6 +757,122 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
             group_id: row.group_id,
             user_id: row.user_id,
             user_name: labelByUserId.get(row.user_id) ?? `No name set (${row.user_id.slice(0, 8)})`,
+            role: this.isGroupRole(row.role) ? row.role : undefined,
         }))
+    }
+
+    /** Leaves a group by removing the current user's membership row. */
+    static async leaveGroup(groupId: string, userId?: string, client: SupabaseClient = supabase): Promise<void> {
+        const resolvedUserId = await this.resolveUserId(userId, client)
+        if (!resolvedUserId) throw new Error('Unable to leave group without a user session.')
+
+        const { error } = await client
+            .from('group_members')
+            .delete()
+            .eq('group_id', groupId)
+            .eq('user_id', resolvedUserId)
+
+        if (error) {
+            console.error('FIUGroupModel.leaveGroup: delete failed', error)
+            throw new Error('Unable to leave group.')
+        }
+    }
+
+    /** Updates a member's role in a group. */
+    static async setMemberRole(
+        groupId: string,
+        memberUserId: string,
+        role: Exclude<FIUGroupRole, 'owner'>,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const { error } = await client
+            .from('group_members')
+            .update({ role })
+            .eq('group_id', groupId)
+            .eq('user_id', memberUserId)
+
+        if (error) {
+            console.error('FIUGroupModel.setMemberRole: update failed', error)
+            throw new Error('Unable to update member role.')
+        }
+    }
+
+    /** Removes a member from a group. */
+    static async removeMember(groupId: string, memberUserId: string, client: SupabaseClient = supabase): Promise<void> {
+        const { error } = await client
+            .from('group_members')
+            .delete()
+            .eq('group_id', groupId)
+            .eq('user_id', memberUserId)
+
+        if (error) {
+            console.error('FIUGroupModel.removeMember: delete failed', error)
+            throw new Error('Unable to remove member.')
+        }
+    }
+
+    /** Transfers ownership of a group to another member (requires owner permissions). */
+    static async transferOwnership(
+        groupId: string,
+        newOwnerUserId: string,
+        userId?: string,
+        client: SupabaseClient = supabase
+    ): Promise<void> {
+        const resolvedUserId = await this.resolveUserId(userId, client)
+        if (!resolvedUserId) throw new Error('Unable to transfer ownership without a user session.')
+        if (!newOwnerUserId) throw new Error('Select a new owner.')
+        if (newOwnerUserId === resolvedUserId) throw new Error('You are already the owner.')
+
+        const { data: group, error: groupErr } = await client
+            .from('groups')
+            .select('id, created_by')
+            .eq('id', groupId)
+            .maybeSingle()
+
+        if (groupErr) {
+            console.error('FIUGroupModel.transferOwnership: group lookup failed', groupErr)
+            throw new Error('Unable to verify group ownership.')
+        }
+
+        const createdBy = (group as { created_by?: string | null } | null)?.created_by
+        if (createdBy !== resolvedUserId) {
+            throw new Error('Only the current owner can transfer ownership.')
+        }
+
+        // Order matters: update roles while created_by still points to the current owner.
+        // 1) Demote current owner to admin
+        const { error: demoteErr } = await client
+            .from('group_members')
+            .update({ role: 'admin' })
+            .eq('group_id', groupId)
+            .eq('user_id', resolvedUserId)
+
+        if (demoteErr) {
+            console.error('FIUGroupModel.transferOwnership: demote failed', demoteErr)
+            throw new Error('Unable to transfer ownership.')
+        }
+
+        // 2) Promote new owner to owner
+        const { error: promoteErr } = await client
+            .from('group_members')
+            .update({ role: 'owner' })
+            .eq('group_id', groupId)
+            .eq('user_id', newOwnerUserId)
+
+        if (promoteErr) {
+            console.error('FIUGroupModel.transferOwnership: promote failed', promoteErr)
+            throw new Error('Unable to transfer ownership.')
+        }
+
+        // 3) Update groups.created_by
+        const { error: updateErr } = await client
+            .from('groups')
+            .update({ created_by: newOwnerUserId })
+            .eq('id', groupId)
+
+        if (updateErr) {
+            console.error('FIUGroupModel.transferOwnership: groups update failed', updateErr)
+            throw new Error('Unable to transfer ownership.')
+        }
     }
 }

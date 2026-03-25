@@ -3,9 +3,8 @@ import { supabase } from '../services/supabaseClient'
 
 type ProfileRow = {
     id?: string | null
-    user_id?: string | null
-    full_name?: string | null
     display_name?: string | null
+    full_name?: string | null
     username?: string | null
     email?: string | null
 }
@@ -20,29 +19,10 @@ function toBestLabel(row: ProfileRow): string | undefined {
     return label && label.length > 0 ? label : undefined
 }
 
-async function fetchProfilesByColumn(
-    client: SupabaseClient,
-    userIds: string[],
-    idColumn: 'id' | 'user_id'
-): Promise<{ rows: ProfileRow[]; error: unknown | null }> {
-    // Keep this select minimal so it works even if your profiles table only has
-    // (id/user_id, display_name) and not the other optional columns.
-    const selectCols = `${idColumn}, display_name`
-
-    // Supabase client types can get extremely deep when columns are dynamic.
-    // Cast the query builder to keep TS from exploding.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const query: any = client.from('profiles')
-
-    const { data, error } = await query.select(selectCols).in(idColumn, userIds)
-
-    return { rows: (data ?? []) as ProfileRow[], error }
-}
-
 export class FIUProfileModel {
     /**
      * Sets the display name for a user in the profiles table.
-     * Uses an upsert so the row will be created if missing.
+     * Schema: profiles.id references auth.users.id.
      */
     static async setDisplayNameForUser(
         userId: string,
@@ -60,25 +40,20 @@ export class FIUProfileModel {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const query: any = client.from('profiles')
 
-        const first = await query.upsert(
+        const { error } = await query.upsert(
             { id: userId, display_name: next },
             { onConflict: 'id' }
         )
-        if (!first.error) return
 
-        const second = await query.upsert(
-            { user_id: userId, display_name: next },
-            { onConflict: 'user_id' }
-        )
-        if (second.error) {
-            console.warn('FIUProfileModel.setDisplayNameForUser: upsert failed', first.error, second.error)
+        if (error) {
+            console.warn('FIUProfileModel.setDisplayNameForUser: upsert failed', error)
             throw new Error('Unable to update display name.')
         }
     }
 
     /**
      * Ensures a profile row exists for the authenticated user.
-     * This runs client-side post-login, so it satisfies the RLS checks (id = auth.uid()).
+     * Best-effort: does not throw if blocked by policy.
      */
     static async ensureProfileForUser(
         input: {
@@ -102,35 +77,18 @@ export class FIUProfileModel {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const query: any = client.from('profiles')
 
-        // Try the common schema first: profiles.id == auth.users.id
         const first = await query.select('display_name').eq('id', input.id).maybeSingle()
-        if (!first.error) {
-            const existing = (first.data?.display_name as string | null | undefined)?.trim()
-            if (existing) return
-
-            const { error: upsertErr } = await query.upsert(
-                { id: input.id, display_name: desiredDisplayName },
-                { onConflict: 'id' }
-            )
-            if (upsertErr) {
-                console.warn('FIUProfileModel.ensureProfileForUser: upsert failed', upsertErr)
-            }
-            return
-        }
-
-        // Fallback schema: profiles.user_id == auth.users.id
-        const second = await query.select('display_name').eq('user_id', input.id).maybeSingle()
-        if (second.error) {
+        if (first.error) {
             console.warn('FIUProfileModel.ensureProfileForUser: select failed', first.error)
             return
         }
 
-        const existing = (second.data?.display_name as string | null | undefined)?.trim()
+        const existing = (first.data?.display_name as string | null | undefined)?.trim()
         if (existing) return
 
         const { error: upsertErr } = await query.upsert(
-            { user_id: input.id, display_name: desiredDisplayName },
-            { onConflict: 'user_id' }
+            { id: input.id, display_name: desiredDisplayName },
+            { onConflict: 'id' }
         )
 
         if (upsertErr) {
@@ -155,7 +113,7 @@ export class FIUProfileModel {
 
     /**
      * Fetches best-effort display labels for multiple users.
-     * Handles both common profile schemas: `profiles.id` or `profiles.user_id`.
+     * Schema: profiles.id matches auth.users.id.
      */
     static async fetchLabelsForUsers(
         userIds: string[],
@@ -168,29 +126,25 @@ export class FIUProfileModel {
         const labelByUserId = new Map<string, string>()
         if (uniqueUserIds.length === 0) return labelByUserId
 
-        const requested = new Set(uniqueUserIds)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const query: any = client.from('profiles')
 
-        const applyRows = (rows: ProfileRow[]) => {
-            rows.forEach((row) => {
-                const label = toBestLabel(row)
-                if (!label) return
+        const { data, error } = await query
+            .select('id, display_name')
+            .in('id', uniqueUserIds)
 
-                // Map by whichever identifier matches the requested user ids.
-                if (row.id && requested.has(row.id)) {
-                    labelByUserId.set(row.id, label)
-                }
-                if (row.user_id && requested.has(row.user_id)) {
-                    labelByUserId.set(row.user_id, label)
-                }
-            })
+        if (error) {
+            // If RLS blocks this, we just fall back to ids.
+            console.warn('FIUProfileModel.fetchLabelsForUsers: query failed', error)
+            return labelByUserId
         }
 
-        // Try both common schemas; avoid failing the whole lookup if one shape doesn't exist.
-        const firstAttempt = await fetchProfilesByColumn(client, uniqueUserIds, 'id')
-        if (!firstAttempt.error) applyRows(firstAttempt.rows)
-
-        const secondAttempt = await fetchProfilesByColumn(client, uniqueUserIds, 'user_id')
-        if (!secondAttempt.error) applyRows(secondAttempt.rows)
+        ;((data ?? []) as ProfileRow[]).forEach((row) => {
+            if (!row.id) return
+            const label = toBestLabel(row)
+            if (!label) return
+            labelByUserId.set(row.id, label)
+        })
 
         return labelByUserId
     }
