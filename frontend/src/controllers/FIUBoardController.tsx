@@ -271,10 +271,6 @@ export class FIUBoardController extends Component<Props, State> {
         this.props.onLogout()
     }
 
-    private handleDisplayNameUpdated = (nextDisplayName: string): void => {
-        this.setState({ userDisplayName: nextDisplayName })
-    }
-
     /** Receives sidebar modal actions for future orchestration hooks. */
     private handleSidebarAction = (action: SidebarModalAction): void => {
         void action
@@ -299,7 +295,6 @@ export class FIUBoardController extends Component<Props, State> {
                 error={error}
                 pendingGroupJoinRequests={pendingGroupJoinRequests}
                 onSignOut={this.handleSignOut}
-                onDisplayNameUpdated={this.handleDisplayNameUpdated}
                 onSidebarAction={this.handleSidebarAction}
                 onCreateBoard={this.handleCreateBoard}
                 onDeleteBoard={this.handleDeleteBoard}

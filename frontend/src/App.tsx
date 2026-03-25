@@ -11,7 +11,7 @@ type AuthPage = 'login' | 'signup'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<AuthPage>('login')
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [userDisplayName, setUserDisplayName] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
 
@@ -61,24 +61,16 @@ function App() {
   useEffect(() => {
     let mounted = true
 
-    const loadDisplayName = async (userId: string) => {
+    const loadDisplayName = async (userId: string, fallbackEmail?: string) => {
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('display_name')
-          .eq('id', userId)
-          .maybeSingle()
+        const displayName = await FIUProfileModel.fetchBestLabelForUser(
+          userId,
+          fallbackEmail,
+          supabase
+        )
 
         if (!mounted) return
-
-        if (error) {
-          console.warn('Unable to load profile display name:', error)
-          setUserDisplayName(undefined)
-          return
-        }
-
-        const displayName = (data as { display_name?: string | null } | null)?.display_name?.trim()
-        setUserDisplayName(displayName && displayName.length > 0 ? displayName : undefined)
+        setUserDisplayName(displayName)
       } catch (e) {
         if (!mounted) return
         console.warn('Unable to load profile display name (unexpected):', e)
@@ -86,19 +78,23 @@ function App() {
       }
     }
 
-    if (!user?.id) {
+    const currentUser = user
+
+    if (!currentUser?.id) {
       setUserDisplayName(undefined)
       return () => {
         mounted = false
       }
     }
 
-    void loadDisplayName(user.id)
+    // Best-effort: ensure a profile exists (harmless if already present).
+    void FIUProfileModel.ensureProfileForUser(currentUser, supabase)
+    void loadDisplayName(currentUser.id, currentUser.email ?? undefined)
 
     return () => {
       mounted = false
     }
-  }, [user?.id])
+  }, [user])
 
   if (loading) {
     return <div className="loading">Loading...</div>
