@@ -24,6 +24,7 @@ import { FIUController } from './FIUController'
 interface Props {
     userEmail: string | undefined
     userId: string | undefined
+    userDisplayName?: string
     onLogout: () => void
 }
 
@@ -266,12 +267,14 @@ export class FIUMapController extends FIUController<Props, State> {
 
     render(): ReactNode {
         const { userEmail } = this.props
+        const { userDisplayName } = this.props
         const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, geofences, error } = this.state
 
         return (
             <FIUBoardView
                 userId={this.props.userId}
                 userEmail={userEmail}
+                userDisplayName={userDisplayName}
                 boards={boards}
                 locations={locations}
                 groups={groups}

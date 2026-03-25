@@ -15,6 +15,7 @@ type AuthPage = 'login' | 'signup'
 function App() {
   const [currentPage, setCurrentPage] = useState<AuthPage>('login')
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [userDisplayName, setUserDisplayName] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -60,6 +61,48 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+
+    const loadDisplayName = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (!mounted) return
+
+        if (error) {
+          console.warn('Unable to load profile display name:', error)
+          setUserDisplayName(undefined)
+          return
+        }
+
+        const displayName = (data as { display_name?: string | null } | null)?.display_name?.trim()
+        setUserDisplayName(displayName && displayName.length > 0 ? displayName : undefined)
+      } catch (e) {
+        if (!mounted) return
+        console.warn('Unable to load profile display name (unexpected):', e)
+        setUserDisplayName(undefined)
+      }
+    }
+
+    if (!user?.id) {
+      setUserDisplayName(undefined)
+      return () => {
+        mounted = false
+      }
+    }
+
+    void loadDisplayName(user.id)
+
+    return () => {
+      mounted = false
+    }
+  }, [user?.id])
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -69,6 +112,7 @@ function App() {
       <Dashboard
         userEmail={user.email}
         userId={user.id}
+        userDisplayName={userDisplayName}
         onLogout={() => setUser(null)}
       />
     )

@@ -3,11 +3,25 @@ import { supabase } from './supabaseClient'
 /** Thin wrapper around Supabase auth calls used by UI and controllers. */
 export const authService = {
   /** Creates a new user account with email/password. */
-  async signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+  async signUp(email: string, password: string, displayName?: string) {
+    const trimmedDisplayName = displayName?.trim()
+
+    const { data, error } = await supabase.auth.signUp(
+      trimmedDisplayName
+        ? {
+            email,
+            password,
+            options: {
+              data: {
+                display_name: trimmedDisplayName,
+              },
+            },
+          }
+        : {
+            email,
+            password,
+          }
+    )
     if (error) throw error
     return data
   },

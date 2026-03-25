@@ -2,6 +2,7 @@ import { Component } from 'react'
 
 type Props = {
     userEmail?: string
+    userDisplayName?: string
     onSignOut: () => void
 }
 
@@ -20,8 +21,10 @@ export class FIUAccountView extends Component<Props, State> {
 
     /** Renders the account dropdown UI. */
     render() {
-        const { userEmail, onSignOut } = this.props
+        const { userEmail, userDisplayName, onSignOut } = this.props
         const { open } = this.state
+
+        const displayName = userDisplayName?.trim() || 'Not set'
 
         return (
             <div className="account-menu">
@@ -31,6 +34,7 @@ export class FIUAccountView extends Component<Props, State> {
 
                 {open && (
                     <div className="account-dropdown">
+                        <p className="account-email">Display name: {displayName}</p>
                         <p className="account-email">{userEmail}</p>
                         <button className="signout-button" onClick={onSignOut}>
                             Sign Out

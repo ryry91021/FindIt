@@ -36,6 +36,7 @@ export type SidebarModalAction =
 interface Props {
     userId?: string
     userEmail?: string
+    userDisplayName?: string
     boards: FIUBoardEntity[]
     locations: FIULocationRecordEntity[]
     geofences: FIUGeofenceEntity[]
@@ -659,7 +660,11 @@ export class FIUBoardView extends FIUView<Props, State> {
                 )}
 
                 {/* Account menu (top-right overlay) */}
-                <FIUAccountView userEmail={userEmail} onSignOut={onSignOut} />
+                <FIUAccountView
+                    userEmail={userEmail}
+                    userDisplayName={this.props.userDisplayName}
+                    onSignOut={onSignOut}
+                />
 
                 {/* Error box (VISIBLE) */}
                 {error && (

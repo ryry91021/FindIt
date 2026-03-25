@@ -9,6 +9,7 @@ interface SignupProps {
 
 /** Signup form component (email/password) backed by Supabase auth. */
 export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
+  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,7 +35,7 @@ export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
     setLoading(true)
 
     try {
-      await authService.signUp(email, password)
+      await authService.signUp(email, password, displayName)
       setSuccess(true)
       setTimeout(() => {
         onSignupSuccess()
@@ -64,6 +65,18 @@ export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
       <div className="auth-card">
         <h1>Sign Up</h1>
         <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="displayName">Display name</label>
+            <input
+              id="displayName"
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Ryan"
+              autoComplete="nickname"
+            />
+          </div>
+
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input

@@ -13,6 +13,24 @@ export type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity }
 export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
     private static joinRequestsTableMissing: boolean | null = null
 
+    private static isPostgresCode(error: unknown, code: string): boolean {
+        if (!error || typeof error !== 'object') return false
+        const err = error as { code?: unknown }
+        return err.code === code
+    }
+
+    private static isForeignKeyViolation(error: unknown): boolean {
+        return this.isPostgresCode(error, '23503')
+    }
+
+    private static isRlsViolation(error: unknown): boolean {
+        if (this.isPostgresCode(error, '42501')) return true
+        if (!error || typeof error !== 'object') return false
+        const err = error as { message?: unknown; details?: unknown }
+        const text = `${String(err.message ?? '')} ${String(err.details ?? '')}`.toLowerCase()
+        return text.includes('row level security') || text.includes('row-level security')
+    }
+
     private static isMissingTableError(error: unknown, tableName: string): boolean {
         if (!error || typeof error !== 'object') return false
         const err = error as { code?: unknown; message?: unknown }
@@ -264,21 +282,6 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
         const resolvedUserId = await this.resolveUserId(userId, client)
         if (!resolvedUserId) throw new Error('Unable to request group join without a user session.')
 
-        const { data: groupExists, error: existsError } = await client
-            .from('groups')
-            .select('id')
-            .eq('id', groupId)
-            .maybeSingle()
-
-        if (existsError) {
-            console.error('FIUGroupModel.requestJoinGroup: group lookup failed', existsError)
-            throw new Error('Unable to validate group ID.')
-        }
-
-        if (!groupExists) {
-            throw new Error('Group UUID not found.')
-        }
-
         const { data: existingMembership } = await client
             .from('group_members')
             .select('group_id')
@@ -318,6 +321,17 @@ export class FIUGroupModel extends FIUModel<FIUGroupEntity> {
                 this.joinRequestsTableMissing = true
                 throw new Error('Group join requests are not enabled (missing `group_join_requests` table).')
             }
+
+            // Under strict RLS, non-members cannot `SELECT` from `groups`, so we avoid a pre-check.
+            // If the UUID is invalid, the FK constraint on group_id will raise a 23503.
+            if (this.isForeignKeyViolation(error)) {
+                throw new Error('Group UUID not found.')
+            }
+
+            if (this.isRlsViolation(error)) {
+                throw new Error('Unable to send join request (not permitted by policy).')
+            }
+
             console.error('FIUGroupModel.requestJoinGroup: insert failed', error)
             throw new Error('Unable to send join request.')
         }
