@@ -73,7 +73,7 @@ export function Signup({ onSwitchToLogin, onSignupSuccess }: SignupProps) {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="e.g. Ryan"
+              placeholder="User Name"
               autoComplete="nickname"
             />
           </div>

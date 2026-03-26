@@ -115,21 +115,21 @@ function App() {
     return (
       <div className="landing-page">
         <header className="landing-header">
-          <div className="landing-logo">FindIt</div>
+          <img src="/aWhereLogo.png" alt="aWhere" className="landing-logo" />
           <div className="landing-actions">
-            <button onClick={() => setCurrentPage('login')} className="link-button">
-              Sign in
-            </button>
-            <button onClick={() => setCurrentPage('signup')} className="primary-button">
-              Sign up
-            </button>
+            <button onClick={() => setCurrentPage('login')} className="link-button">Log in</button>
+            <button onClick={() => setCurrentPage('signup')} className="primary-button">Sign up</button>
           </div>
         </header>
 
         <main className="landing-hero">
-          <h1>Welcome to FindIt</h1>
+          <div className="landing-badge">Real-time location tracking</div>
+          <h1 className="landing-title">
+            <span className="landing-title__brand">aWhere</span>
+            <span className="landing-title__tagline">Tracking made simple.</span>
+          </h1>
           <p>
-            Track, protect, and manage your assets seamlessly with real-time location insights and group sharing.
+            See your devices on a map, set safe zones, and share access with the people you trust—so you always know where your loved ones are.
           </p>
           <div className="hero-cta">
             <button
@@ -148,25 +148,52 @@ function App() {
         </main>
 
         <section className="landing-section about-section">
-          <h2>About aWhere</h2>
+          <h2>What aWhere Does</h2>
           <p>
-            aWhere is a location-tracking and data communication system combining LoRaWAN-enabled embedded hardware with a cloud-based application. 
-            We enable reliable long-range data transfer, real-time asset visibility, and collaborative management via a web interface.
+            aWhere helps you keep track of connected devices you own or share with a group.
+            Open the app to view the latest location, check recent updates, and manage your devices in one place.
           </p>
-          <h3>Mission</h3>
+          <h3>Who It's For</h3>
           <p>
-            Design, implement, and validate an end-to-end distributed system that makes monitoring and managing connected devices simple, robust, and extensible.
+            Families, students, and small teams who want a clear, reliable way to locate people or equipment—without digging through technical details.
           </p>
-          <h3>Success Criteria</h3>
+          <h3>Key Capabilities</h3>
           <ul>
-            <li>Reliable LoRaWAN communication between embedded boards and backend.</li>
-            <li>Safe storage, processing, and display of location data in the frontend.</li>
-            <li>Acceptance with Wearable Robotics Systems Lab benchmarks.</li>
+            <li>View live and last-known device locations on an interactive map.</li>
+            <li>Create safe zones (geofences) to help you spot unexpected movement.</li>
+            <li>Share access with a group so everyone stays in sync.</li>
+            <li>Organize devices with names and status details for quick recognition.</li>
           </ul>
         </section>
 
         <section className="landing-section team-section">
-          <h2>Meet the Team</h2>
+          <h2>Why People Use aWhere</h2>
+          <div className="team-grid">
+            <article>
+              <h4>Peace of Mind</h4>
+              <p>Quickly check where a device is and when it last reported in.</p>
+            </article>
+            <article>
+              <h4>Stay Organized</h4>
+              <p>Manage multiple devices, keep them labeled, and find what you need fast.</p>
+            </article>
+            <article>
+              <h4>Share Responsibly</h4>
+              <p>Collaborate with a group using account-based access instead of shared passwords.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="landing-section process-section">
+          <h2>Privacy & Reliability</h2>
+          <p>
+            Your data is tied to your account and the groups you choose to share with.
+            aWhere focuses on clear visibility into what was recorded and when, so you can trust what you see.
+          </p>
+        </section>
+
+        <section className="landing-section developer-section">
+          <h2>Developer Roles</h2>
           <div className="team-grid">
             <article>
               <h4>Ryan Davis</h4>
@@ -181,14 +208,6 @@ function App() {
               <p>Buildmeister, infrastructure engineer, risk manager, requirements owner.</p>
             </article>
           </div>
-        </section>
-
-        <section className="landing-section process-section">
-          <h2>Development Plan Highlights</h2>
-          <p>
-            Project phases include architecture, prototype communication, integration, system testing, and final delivery with CI/CD and documentation. 
-            We follow an Agile Kanban workflow with frequent heartbeat, status, and issue meetings.
-          </p>
         </section>
 
         <footer className="landing-footer">

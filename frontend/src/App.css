@@ -38,9 +38,11 @@
 }
 
 .landing-logo {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #1d2f64;
+  height: 200px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+  display: block;
 }
 
 .landing-actions {
@@ -95,15 +97,56 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
-  text-align: left;
+  align-items: center;
+  text-align: center;
   gap: 1rem;
 }
 
+.landing-badge {
+  display: inline-block;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #1d458f;
+  background-color: rgba(42, 97, 232, 0.12);
+  border: 1px solid rgba(67, 97, 197, 0.2);
+}
+
 .landing-hero h1 {
-  font-size: clamp(2rem, 5vw, 3.6rem);
-  line-height: 1.1;
   margin: 0;
+}
+
+.landing-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  align-items: center;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.landing-title__brand {
+  display: inline-block;
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, #2a61e8, #1d458f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.landing-title__tagline {
+  display: inline-block;
+  margin-top: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(67, 97, 197, 0.2);
+  font-size: clamp(1.05rem, 2.2vw, 1.5rem);
+  font-weight: 700;
   color: #172557;
 }
 
@@ -135,6 +178,7 @@
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(26, 36, 69, 0.08);
   border: 1px solid rgba(98, 129, 206, 0.18);
+  text-align: center;
 }
 
 .landing-section h2 {
@@ -154,8 +198,16 @@
   color: #385076;
 }
 
+.landing-section p {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .landing-section ul {
-  margin-left: 1.3rem;
+  display: inline-block;
+  text-align: left;
+  margin: 0.5rem auto 0;
+  padding-left: 1.3rem;
   list-style: disc;
 }
 
@@ -171,6 +223,7 @@
   border: 1px solid rgba(52, 92, 170, 0.25);
   border-radius: 10px;
   padding: 0.9rem;
+  text-align: center;
 }
 
 .team-grid h4 {
