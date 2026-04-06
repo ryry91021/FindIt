@@ -518,7 +518,7 @@ export class FIUGroupView extends FIUView<Props, State> {
                                         </button>
                                         <a
                                             className="board-management-button group-email-link"
-                                            href={`mailto:?subject=Join my FindIt group&body=Use this group UUID to request access: ${group.id}`}
+                                            href={`mailto:?subject=Join my aWhere tracking group (${group.name})&body=Use this group UUID to request access: ${group.id}`}
                                         >
                                             Email
                                         </a>
