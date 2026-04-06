@@ -25,6 +25,8 @@ export class FIUMapView {
     private geofenceLayer: L.LayerGroup | null = null
     private geofenceCircles: L.Circle[] = []
 
+    private lastFitDeviceKey: string | null = null
+
     /** Tears down the Leaflet instance (useful for React dev/StrictMode remounts). */
     destroy(): void {
         try {
@@ -34,6 +36,7 @@ export class FIUMapView {
             this.geofenceLayer = null
             this.markers = []
             this.geofenceCircles = []
+            this.lastFitDeviceKey = null
         }
     }
 
@@ -111,7 +114,25 @@ export class FIUMapView {
         // Auto-fit to markers
         if (this.markers.length > 0) {
             const group = L.featureGroup(this.markers)
-            this.map.fitBounds(group.getBounds().pad(0.2))
+
+            const deviceKey = locations
+                .map((l) => l.device_id)
+                .filter((id): id is string => typeof id === 'string' && id.length > 0)
+                .sort()
+                .join('|')
+
+            const markerBounds = group.getBounds().pad(0.2)
+            const mapBounds = this.map.getBounds()
+            const paddedMapBounds = mapBounds.pad(-0.15)
+
+            const markerSetChanged = deviceKey !== this.lastFitDeviceKey
+            const markersOutOfView =
+                paddedMapBounds.isValid() && markerBounds.isValid() ? !paddedMapBounds.contains(markerBounds) : true
+
+            if (markerSetChanged || markersOutOfView) {
+                this.lastFitDeviceKey = deviceKey
+                this.map.fitBounds(markerBounds)
+            }
         }
     }
 

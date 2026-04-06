@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "replay:sensecap": "node tests/replay/replaySensecapOpenStream.mjs --speed 2",
+    "test:integration:with-replay": "npm run test:integration && npm run replay:sensecap",
     "ci": "node scripts/ci.mjs",
     "hooks:install": "git -C .. config core.hooksPath .githooks"
   },

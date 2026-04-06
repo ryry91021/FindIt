@@ -4,12 +4,10 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'supabase/**'
       - '.github/workflows/frontend-ci.yml'
   push:
     branches: [ main ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
 
 concurrency:
   group: frontend-ci-${{ github.ref }}
@@ -40,5 +38,7 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           SUPABASE_TEST_EMAIL: ${{ secrets.SUPABASE_TEST_EMAIL }}
           SUPABASE_TEST_PASSWORD: ${{ secrets.SUPABASE_TEST_PASSWORD }}
-          SUPABASE_TEST_DEVICE_IDS: ${{ secrets.SUPABASE_TEST_DEVICE_IDS }}
+          SUPABASE_TEST_DEVICE_EUI: ${{ secrets.SUPABASE_TEST_DEVICE_EUI }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          RUN_TRACKING_REPLAY_SMOKE: '1'
         run: npm run ci

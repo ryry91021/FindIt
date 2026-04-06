@@ -28,6 +28,8 @@ import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import '../components/Dashboard.css'
 
+const BOARD_ONLINE_WINDOW_MS = 5 * 60_000
+
 export type SidebarModalAction =
     | 'board-management'
     | 'geofence-management'
@@ -93,6 +95,9 @@ type State = {
     confirmBoardDeleteOpen: boolean
     groupVisibilityById: Record<string, boolean>
     visibilityUserId: string | null
+
+    /** Used to re-render online/offline indicators as time passes. */
+    statusNowMs: number
 }
 
 /**
@@ -100,6 +105,8 @@ type State = {
  * Renders based on props (no DB access / request flow).
  */
 export class FIUBoardView extends FIUView<Props, State> {
+    private statusClockId: number | null = null
+
     state: State = {
         sidebarOpen: false,
         modalOpen: false,
@@ -119,6 +126,29 @@ export class FIUBoardView extends FIUView<Props, State> {
         confirmBoardDeleteOpen: false,
         groupVisibilityById: {},
         visibilityUserId: null,
+
+        statusNowMs: Date.now(),
+    }
+
+    private isBoardOnline(boardId: string, locations: FIULocationRecordEntity[], nowMs: number): boolean {
+        let sawAny = false
+        let sawInvalidTimestamp = false
+        let latestMs = -Infinity
+
+        for (const loc of locations) {
+            if (loc.device_id !== boardId) continue
+            sawAny = true
+            const t = Date.parse(loc.recorded_at)
+            if (Number.isNaN(t)) {
+                sawInvalidTimestamp = true
+                continue
+            }
+            if (t > latestMs) latestMs = t
+        }
+
+        if (!sawAny) return false
+        if (latestMs === -Infinity) return sawInvalidTimestamp
+        return nowMs - latestMs <= BOARD_ONLINE_WINDOW_MS
     }
 
     private mapContainerRef = createRef<HTMLDivElement>()
@@ -616,10 +646,22 @@ export class FIUBoardView extends FIUView<Props, State> {
 
         this.syncVisibilityForUser(this.props.userId ?? null, this.props.groups)
         window.addEventListener('keydown', this.onWindowKeyDown)
+
+        // Ensure online/offline indicators can flip back to offline when no new
+        // location inserts arrive (e.g., after a replay stops).
+        if (import.meta.env.MODE !== 'test') {
+            this.statusClockId = window.setInterval(() => {
+                this.setState({ statusNowMs: Date.now() })
+            }, 1000)
+        }
     }
 
     /** Removes global listeners when dashboard view unmounts. */
     componentWillUnmount(): void {
+        if (this.statusClockId != null) {
+            window.clearInterval(this.statusClockId)
+            this.statusClockId = null
+        }
         this.mapView.destroy()
         window.removeEventListener('keydown', this.onWindowKeyDown)
     }
@@ -659,7 +701,7 @@ export class FIUBoardView extends FIUView<Props, State> {
     render() {
         const { userEmail, boards, locations, error, onSignOut } = this.props
         const pendingGroupCount = this.props.pendingGroupJoinRequests.length
-        const { sidebarOpen, modalOpen, activeModalAction } = this.state
+        const { sidebarOpen, modalOpen, activeModalAction, statusNowMs } = this.state
 
         const groupNameById = new Map<string, string>()
         ;(this.props.groups ?? []).forEach((g) => {
@@ -763,12 +805,12 @@ export class FIUBoardView extends FIUView<Props, State> {
                         <h4>Boards</h4>
                         {boards.length === 0 && !error && <p>No boards found.</p>}
                         {boards.map((board) => {
-                            const hasLocation = locations.some((l) => l.device_id === board.id)
+                            const isOnline = this.isBoardOnline(board.id, locations, statusNowMs)
                             const groupName = board.group_id ? groupNameById.get(board.group_id) : null
                             const showGroupSubtext = Boolean(board.group_id) && !this.isOwnedBoard(board) && Boolean(groupName)
                             return (
                                 <div key={board.id} className="board-item">
-                                    <span className={`status-dot ${hasLocation ? 'online' : 'offline'}`} />
+                                    <span className={`status-dot ${isOnline ? 'online' : 'offline'}`} />
                                     <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                                         <span>{board.display_name ?? 'Unnamed Board'}</span>
                                         {showGroupSubtext && (
@@ -887,11 +929,11 @@ export class FIUBoardView extends FIUView<Props, State> {
                     <h4>Boards</h4>
                     {visibleForLegend.length === 0 && !error && <p>No boards found.</p>}
                     {visibleForLegend.map((board) => {
-                        const hasLocation = locations.some((l) => l.device_id === board.id)
+                        const isOnline = this.isBoardOnline(board.id, locations, statusNowMs)
                         return (
                             <div key={board.id} className="board-item">
                                 <span
-                                    className={`status-dot ${hasLocation ? 'online' : 'offline'}`}
+                                    className={`status-dot ${isOnline ? 'online' : 'offline'}`}
                                 />
                                 {board.display_name ?? 'Unnamed Board'}
                             </div>

@@ -5,9 +5,11 @@
 */
 
 import type { ReactNode } from 'react'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { authService } from '../services/authService'
+import { supabase } from '../services/supabaseClient'
 import { FIUBoardView } from '../views/FIUBoardView'
 import type { SidebarModalAction } from '../views/FIUBoardView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
@@ -58,14 +60,99 @@ export class FIUMapController extends FIUController<Props, State> {
     private groupsController = new FIUGroupsController()
     private geofencesController = new FIUGeofencesController()
 
+    private locationLogsChannel: RealtimeChannel | null = null
+    private locationLogsChannelUserId: string | undefined
+
     componentDidMount(): void {
         void this.load()
+        this.ensureLocationLogsSubscription()
     }
 
     componentDidUpdate(prevProps: Props): void {
         if (this.props.userId !== prevProps.userId) {
             void this.load()
+            this.ensureLocationLogsSubscription()
         }
+    }
+
+    componentWillUnmount(): void {
+        this.teardownLocationLogsSubscription()
+        super.componentWillUnmount()
+    }
+
+    private teardownLocationLogsSubscription(): void {
+        try {
+            if (this.locationLogsChannel) {
+                void this.locationLogsChannel.unsubscribe()
+            }
+        } finally {
+            this.locationLogsChannel = null
+            this.locationLogsChannelUserId = undefined
+        }
+    }
+
+    private ensureLocationLogsSubscription(): void {
+        // Avoid opening websocket connections during unit/integration tests.
+        if (import.meta.env.MODE === 'test') return
+
+        const userId = this.props.userId
+        if (!userId) {
+            this.teardownLocationLogsSubscription()
+            return
+        }
+
+        if (this.locationLogsChannel && this.locationLogsChannelUserId === userId) return
+
+        this.teardownLocationLogsSubscription()
+        this.locationLogsChannelUserId = userId
+
+        this.locationLogsChannel = supabase
+            .channel(`location_logs_inserts:${userId}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'location_logs' },
+                (payload) => {
+                    const next = payload.new as Partial<FIULocationRecordEntity>
+                    const deviceId = next.device_id
+                    if (!deviceId) return
+
+                    // Only update markers for boards we currently have loaded.
+                    // Realtime delivery is permission-filtered, but we also filter
+                    // to avoid thrashing state for irrelevant events.
+                    this.setState((prev) => {
+                        if (!prev.boards || prev.boards.length === 0) return null
+
+                        const boardIds = new Set(prev.boards.map((b) => b.id))
+                        if (!boardIds.has(deviceId)) return null
+
+                        const incoming = next as FIULocationRecordEntity
+
+                        const idx = prev.locations.findIndex((l) => l.device_id === deviceId)
+                        if (idx === -1) {
+                            return { locations: [...prev.locations, incoming] }
+                        }
+
+                        const existing = prev.locations[idx]
+                        const existingTs = Date.parse(existing.recorded_at)
+                        const incomingTs = Date.parse(incoming.recorded_at)
+                        const isNewer =
+                            Number.isNaN(existingTs) || Number.isNaN(incomingTs)
+                                ? true
+                                : incomingTs >= existingTs
+
+                        if (!isNewer) return null
+
+                        const nextLocations = prev.locations.slice()
+                        nextLocations[idx] = incoming
+                        return { locations: nextLocations }
+                    })
+                }
+            )
+            .subscribe((status) => {
+                if (import.meta.env.MODE === 'development') {
+                    console.info('[FIUMapController] location_logs subscription status', { status })
+                }
+            })
     }
 
 

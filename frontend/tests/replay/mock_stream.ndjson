@@ -1,0 +1,8 @@
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4198","payload":{"value":"40.744812","timestamp":"1775489561125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4197","payload":{"value":"-74.025338","timestamp":"1775489561125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4198","payload":{"value":"40.744962","timestamp":"1775489562125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4197","payload":{"value":"-74.025188","timestamp":"1775489562125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4198","payload":{"value":"40.745112","timestamp":"1775489563125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4197","payload":{"value":"-74.025038","timestamp":"1775489563125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4198","payload":{"value":"40.745262","timestamp":"1775489564125"}}
+{"topic":"/device_sensor_data/12345/TEST_DEVEUI_FAKEBOARD001/1/0/4197","payload":{"value":"-74.024888","timestamp":"1775489564125"}}

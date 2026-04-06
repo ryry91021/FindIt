@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+
+# Block committing env files / obvious secrets.
+# This repo already ignores .env.local, but this prevents accidental force-adds
+# or secret strings committed into other files.
+
+# Files staged for commit
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=ACM)"
+
+# Block committing any .env.local or .env (allow *.example)
+echo "$STAGED_FILES" | while IFS= read -r f; do
+  case "$f" in
+    *.env|*.env.*|.env|.env.*)
+      case "$f" in
+        *.example|*.sample|*.template) ;; # allow
+        *)
+          echo "[pre-commit] Refusing to commit env file: $f" >&2
+          echo "[pre-commit] Put secrets in .env.local (gitignored) or CI secrets." >&2
+          exit 1
+          ;;
+      esac
+      ;;
+  esac
+done
+
+# Block common secret assignments in added lines (allow in *.example)
+DIFF="$(git diff --cached -U0 | cat)"
+
+# If any forbidden patterns appear in non-example files, fail.
+# Note: patterns are conservative; rotate secrets if they were ever committed.
+FORBIDDEN_RE='\+(VITE_SUPABASE_ANON_KEY|SUPABASE_TEST_PASSWORD|SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY|WEBHOOK_SECRET)='
+
+# Extract filenames from the diff headers and scan per-file.
+# Simpler approach: if forbidden appears anywhere AND the diff is not for an .example file.
+if echo "$DIFF" | grep -Eq "$FORBIDDEN_RE"; then
+  if ! echo "$DIFF" | grep -Eq '^\+\+\+ b/.*\.(env\.example|example)$'; then
+    echo "[pre-commit] Refusing to commit likely secrets (e.g. WEBHOOK_SECRET / service role / passwords)." >&2
+    echo "[pre-commit] Put secrets in .env.local (gitignored) or CI secrets." >&2
+    exit 1
+  fi
+fi
+
+exit 0
