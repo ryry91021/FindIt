@@ -11,39 +11,33 @@
 #include <Tracker_Peripheral.hpp>
 
 // ------------------------------
+// FIFSensor policy
+// ------------------------------
+enum class FIFReadPolicy {
+  EveryCycle,
+  PrimeOnce,
+  ExternalEvent
+};
+
+// ------------------------------
 // UML: FIFSensor (abstract)
-/*
-Responsibilities:
-- Defines datatypes for sampling.​
-
-- Provides abstract read() method​
-
-- Provides abstract toPayload() method for data formatting​
-*/
 // ------------------------------
 class FIFSensor {
 public:
   virtual ~FIFSensor() = default;
 
-  // Read/update the underlying Tracker_Peripheral cache or other storage.
   virtual void read() = 0;
+  virtual FIFReadPolicy policy() const = 0;
 
   // Optional debug payload view (not the SenseCAP uplink payload).
-  virtual void toPayload(char* out, size_t outLen) { (void)out; (void)outLen; }
+  virtual void toPayload(char* out, size_t outLen) {
+    (void)out;
+    (void)outLen;
+  }
 };
 
 // ------------------------------
 // UML: FIFAccelerometer
-/*
-Responsibilities:
-- Store/maintain last sampled XYZ values (for debug and/or higher-level formatting) per read.​
-
-- Send XYZ accelerometer data using toPayload()​
-
-​
-
-​
-*/
 // ------------------------------
 class FIFAccelerometer : public FIFSensor {
 public:
@@ -53,21 +47,23 @@ public:
     tp_.measureLIS3DHTRDatas(&x_, &y_, &z_);
   }
 
+  FIFReadPolicy policy() const override {
+    return FIFReadPolicy::EveryCycle;
+  }
+
   void toPayload(char* out, size_t outLen) override {
     snprintf(out, outLen, "accel: x=%.3f y=%.3f z=%.3f", x_, y_, z_);
   }
 
 private:
   Tracker_Peripheral& tp_;
-  float x_ = 0, y_ = 0, z_ = 0;
+  float x_ = 0.0f;
+  float y_ = 0.0f;
+  float z_ = 0.0f;
 };
 
 // ------------------------------
 // UML: FIFBatteryMonitoring
-/*
-Responsibilities:
-- Provide battery status readings (level/voltage) for payload.​
-*/
 // ------------------------------
 class FIFBatteryMonitoring : public FIFSensor {
 public:
@@ -75,15 +71,25 @@ public:
 
   void read() override {
     if (primed_) return;
-    // NOTE: You must swap this to the actual API your Tracker_Peripheral exposes.
-    // Examples in some stacks: measureBatVoltage(), getBatteryVoltage(), etc.
-    // If there is no measure call, you may not need this class at all.
+
+    // Replace this with the real Tracker_Peripheral battery API if available.
+    // Example only:
     // tp_.measureBattery(&level_, &voltage_);
 
     primed_ = true;
   }
 
-  bool primed() const { return primed_; }
+  FIFReadPolicy policy() const override {
+    return FIFReadPolicy::PrimeOnce;
+  }
+
+  void toPayload(char* out, size_t outLen) override {
+    snprintf(out, outLen, "battery: level=%.2f voltage=%.2f", level_, voltage_);
+  }
+
+  bool primed() const {
+    return primed_;
+  }
 
 private:
   Tracker_Peripheral& tp_;
@@ -93,28 +99,19 @@ private:
 };
 
 // ------------------------------
-// (Optional) UML: FIFGPSData
-/*
-Responsibilities:
-- Represent the GNSS
-data/sensing concept in
-the sensor hierarchy.​
-
-- GNSS acquisition is
-handled by the board’s
-tracking state machine,
-which queues results
-separately
-(WM1110_Geolocation).​
-*/
+// UML: FIFGPSData
 // ------------------------------
 class FIFGPSData : public FIFSensor {
 public:
   explicit FIFGPSData(WM1110_Geolocation& geo) : geo_(geo) {}
 
   void read() override {
-    // GNSS acquisition is event/state-machine driven in your loop via geo_.startTrackerScan().
-    // So typically this is a no-op here.
+    // GNSS acquisition is handled by the tracker state machine in loop().
+    // So this remains a no-op for the interface.
+  }
+
+  FIFReadPolicy policy() const override {
+    return FIFReadPolicy::ExternalEvent;
   }
 
 private:
@@ -123,37 +120,20 @@ private:
 
 // ------------------------------
 // UML: FIFDevBoard
-/*
-Responsibilities:
-- Initialize sensors for scanning ​
-
-- Update Status and last uplink time​
-
-Control sensor sampling policy:​
-  - prime “stale” sensors once​
-  - refresh accelerometer every collect cycle​
-
-- Format Uplink Payload​
-
-- Queue LoRaWAN uplink ​
-*/
+// Board depends on FIFSensor abstraction only.
 // ------------------------------
 class FIFDevBoard {
 public:
-  FIFDevBoard()
-    : geo_(WM1110_Geolocation::getInstance()),
-      accel_(tracker_),
-      batt_(tracker_),
-      gps_(geo_)
-  {
-    // Composition list (matches UML multiplicity "*")
-    sensors_[0] = &accel_;
-    sensors_[1] = &batt_;
-    sensors_[2] = &gps_;
-  }
+  FIFDevBoard(Tracker_Peripheral& tracker,
+              WM1110_Geolocation& geo,
+              FIFSensor** sensors,
+              size_t sensorCount)
+    : tracker_(tracker),
+      geo_(geo),
+      sensors_(sensors),
+      sensorCount_(sensorCount) {}
 
   void begin() {
-    // Storage + BLE + peripherals
     wm1110_storage.begin();
     wm1110_storage.loadBootConfigParameters();
 
@@ -167,86 +147,128 @@ public:
     tracker_.begin();
     tracker_.setUserButton();
 
-    // GNSS mode, SenseCAP uplink
     geo_.begin(Track_Scan_Gps, true);
 
     wm1110_at_config.begin();
 
-    // Prime stale sensors ONCE
     primeStaleSensorsOnce();
 
     geo_.run();
     status_ = "RUNNING";
   }
 
-  // Equivalent to your "collectData()" idea.
-  // Fresh accel; stale sensors not refreshed; pack stock SenseCAP payload.
   void collectDataAndQueueUplink() {
-    // Fresh sensors
-    accel_.read();
+    for (size_t i = 0; i < sensorCount_; ++i) {
+      if (sensors_[i] == nullptr) continue;
 
-    // Stale sensors: only prime if somehow not primed
+      switch (sensors_[i]->policy()) {
+        case FIFReadPolicy::EveryCycle:
+          sensors_[i]->read();
+          break;
+
+        case FIFReadPolicy::PrimeOnce:
+          // already handled by primeStaleSensorsOnce()
+          break;
+
+        case FIFReadPolicy::ExternalEvent:
+          // GPS handled by tracker state machine
+          break;
+      }
+    }
+
     if (!stalePrimed_) {
       primeStaleSensorsOnce();
     }
 
-    // Preserve payload format
     tracker_.packUplinkSensorDatas();
     tracker_.getUplinkSensorDatas(sensorBuf_, &sensorSize_);
-
-    // Insert into LoRa queue (this is what your loop already does)
     geo_.insertIntoTxQueue(sensorBuf_, sensorSize_);
 
     lastUplinkTimeMs_ = smtc_modem_hal_get_time_in_ms();
   }
 
-  // You still drive GNSS scans via your existing state machine, but you can keep helpers here.
-  WM1110_Geolocation& geo() { return geo_; }
-  Tracker_Peripheral& tracker() { return tracker_; }
+  WM1110_Geolocation& geo() {
+    return geo_;
+  }
 
-  const char* status() const { return status_; }
-  uint32_t lastUplinkTimeMs() const { return lastUplinkTimeMs_; }
+  Tracker_Peripheral& tracker() {
+    return tracker_;
+  }
 
-private:
-  void primeStaleSensorsOnce() {
-    // Example: SHT4x prime once to keep temp/hum “stale”
-    tracker_.measureSHT4xDatas(&temperature_, &humidity_);
-    stalePrimed_ = true;
+  const char* status() const {
+    return status_;
+  }
 
-    // Battery prime once if you implement it
-    batt_.read();
+  uint32_t lastUplinkTimeMs() const {
+    return lastUplinkTimeMs_;
   }
 
 private:
-  // UML attributes
+  void primeStaleSensorsOnce() {
+    if (stalePrimed_) return;
+
+    // Prime stale environmental values once to preserve SenseCAP payload behavior.
+    tracker_.measureSHT4xDatas(&temperature_, &humidity_);
+
+    for (size_t i = 0; i < sensorCount_; ++i) {
+      if (sensors_[i] == nullptr) continue;
+
+      if (sensors_[i]->policy() == FIFReadPolicy::PrimeOnce) {
+        sensors_[i]->read();
+      }
+    }
+
+    stalePrimed_ = true;
+  }
+
+private:
   String deviceEUI_ = "";
   const char* status_ = "INIT";
   uint32_t lastUplinkTimeMs_ = 0;
 
-  // Core stack objects
+  Tracker_Peripheral& tracker_;
   WM1110_Geolocation& geo_;
-  Tracker_Peripheral tracker_;
 
-  // Sensors (composition)
-  FIFAccelerometer accel_;
-  FIFBatteryMonitoring batt_;
-  FIFGPSData gps_;
-  FIFSensor* sensors_[3] = {nullptr, nullptr, nullptr};
+  FIFSensor** sensors_ = nullptr;
+  size_t sensorCount_ = 0;
 
-  // Staleness cache
   bool stalePrimed_ = false;
   float temperature_ = 0.0f;
   float humidity_ = 0.0f;
 
-  // Packed payload
   uint8_t sensorBuf_[64] = {0};
   uint8_t sensorSize_ = 0;
 };
 
 // ------------------------------
+// Global shared stack objects
+// ------------------------------
+static Tracker_Peripheral tracker;
+static WM1110_Geolocation& geo = WM1110_Geolocation::getInstance();
+
+// ------------------------------
+// Concrete sensor instances
+// These implement FIFSensor, but FIFDevBoard only sees FIFSensor*
+// ------------------------------
+static FIFAccelerometer accel(tracker);
+static FIFBatteryMonitoring batt(tracker);
+static FIFGPSData gps(geo);
+
+static FIFSensor* sensorList[] = {
+  &accel,
+  &batt,
+  &gps
+};
+
+// ------------------------------
 // Global board instance
 // ------------------------------
-static FIFDevBoard board;
+static FIFDevBoard board(
+  tracker,
+  geo,
+  sensorList,
+  sizeof(sensorList) / sizeof(sensorList[0])
+);
 
 // Keep your existing flags/logic:
 static constexpr uint32_t EXECUTION_PERIOD = 50;
@@ -266,7 +288,9 @@ bool shock_flag         = false;
 bool shock_trig_track   = false;
 bool shock_trig_collect = false;
 
-// Triggers preserved, but now use board.tracker() and board.geo()
+// ------------------------------
+// Triggers preserved
+// ------------------------------
 void trigger_track_action() {
   board.tracker().getUserButtonIrqStatus(&button_press_flag);
   if (button_press_flag) {
@@ -311,7 +335,7 @@ void loop() {
   if (board.geo().time_sync_flag == true) {
     trigger_track_action();
 
-    // -------- GNSS state machine (unchanged idea) --------
+    // -------- GNSS state machine --------
     if (sleepTime > 300) {
       now_time = smtc_modem_hal_get_time_in_ms();
       switch (board.geo().tracker_scan_status) {
@@ -343,7 +367,7 @@ void loop() {
           break;
 
         case Track_Stop:
-          board.geo().insertTrackResultsIntoQueue(); // GNSS uplink insert
+          board.geo().insertTrackResultsIntoQueue();
           consume_time = smtc_modem_hal_get_time_in_ms() - now_time;
           board.geo().tracker_scan_status = Track_None;
           button_trig_track = false;
@@ -356,7 +380,7 @@ void loop() {
       sleepTime = sleepTime - consume_time;
     }
 
-    // -------- Sensor uplink (OO call) --------
+    // -------- Sensor uplink --------
     if (sleepTime > 500) {
       now_time = smtc_modem_hal_get_time_in_ms();
       if ((now_time - start_sensor_read_time > sensor_read_period) || (start_sensor_read_time == 0) ||
