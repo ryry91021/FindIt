@@ -14,7 +14,8 @@ type Props = {
         centerLat: number,
         centerLon: number,
         radiusMeters: number,
-        groupId?: string | null
+        groupId?: string | null,
+        color?: string
     ) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
@@ -24,6 +25,7 @@ type Props = {
             center_lon?: number
             radius_meters?: number
             group_id?: string | null
+            color?: string
         }
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
@@ -34,6 +36,7 @@ type Mode = 'list' | 'edit'
 
 const DEFAULT_CENTER: { lat: number; lon: number } = { lat: 40.7128, lon: -74.006 }
 const DEFAULT_RADIUS_METERS = 250
+const DEFAULT_COLOR = '#3388ff'
 
 type State = {
     mode: Mode
@@ -44,6 +47,7 @@ type State = {
     centerLon: number
     addressQuery: string
     groupId: string
+    color: string
     busy: boolean
     error: string | null
     optimisticEnabled: Record<string, boolean>
@@ -60,6 +64,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
         centerLon: DEFAULT_CENTER.lon,
         addressQuery: '',
         groupId: '',
+        color: DEFAULT_COLOR,
         busy: false,
         error: null,
         optimisticEnabled: {},
@@ -156,10 +161,18 @@ export class FIUGeofenceView extends FIUView<Props, State> {
         }
 
         if (!this.miniCircle) {
-            this.miniCircle = L.circle(center, { radius: this.state.radiusMeters }).addTo(this.miniMap)
+            this.miniCircle = L.circle(center, {
+                radius: this.state.radiusMeters,
+                color: this.state.color,
+                fillColor: this.state.color,
+            }).addTo(this.miniMap)
         } else {
             this.miniCircle.setLatLng(center)
             this.miniCircle.setRadius(this.state.radiusMeters)
+            this.miniCircle.setStyle({
+                color: this.state.color,
+                fillColor: this.state.color,
+            })
         }
     }
 
@@ -182,6 +195,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             centerLon: DEFAULT_CENTER.lon,
             addressQuery: '',
             groupId: '',
+            color: DEFAULT_COLOR,
             busy: false,
             mode: 'edit',
         })
@@ -197,6 +211,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             centerLon: Number(g.center_lon ?? DEFAULT_CENTER.lon),
             addressQuery: '',
             groupId: g.group_id ?? '',
+            color: g.color ?? DEFAULT_COLOR,
             busy: false,
             mode: 'edit',
         })
@@ -208,6 +223,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
             editingId: null,
             addressQuery: '',
             groupId: '',
+            color: DEFAULT_COLOR,
             busy: false,
             error: null,
         })
@@ -229,6 +245,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                     center_lon: this.state.centerLon,
                     radius_meters: this.state.radiusMeters,
                     group_id,
+                    color: this.state.color,
                 })
             } else {
                 await this.props.onCreateGeofence(
@@ -236,7 +253,8 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                     this.state.centerLat,
                     this.state.centerLon,
                     this.state.radiusMeters,
-                    group_id
+                    group_id,
+                    this.state.color
                 )
             }
 
@@ -445,6 +463,26 @@ export class FIUGeofenceView extends FIUView<Props, State> {
                                     this.setState({ radiusMeters: Number(e.target.value) })
                                 }
                             />
+                        </div>
+
+                        <div className="geofence-color">
+                            <label className="geofence-color-label" htmlFor="geofence-color">
+                                Color
+                            </label>
+                            <div className="geofence-color-picker">
+                                <input
+                                    id="geofence-color"
+                                    className="geofence-color-input"
+                                    type="color"
+                                    value={this.state.color}
+                                    onChange={(e) => this.setState({ color: e.target.value })}
+                                />
+                                <span
+                                    className="geofence-color-preview"
+                                    style={{ backgroundColor: this.state.color }}
+                                    title={this.state.color}
+                                />
+                            </div>
                         </div>
 
                         <div className="board-management-row">

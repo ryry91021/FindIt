@@ -14,4 +14,6 @@ export interface FIUGeofenceEntity {
     group_id?: string | null
     /** Whether this geofence should be shown on the map. Persisted via `geofences.enabled` when available. */
     enabled?: boolean | null
+    /** Color of the geofence circle on the map (hex color code). Defaults to '#3388ff' if not specified. */
+    color?: string | null
 }

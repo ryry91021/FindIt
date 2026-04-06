@@ -151,6 +151,8 @@ export class FIUMapView {
             .forEach((g) => {
                 const circle = L.circle([g.center_lat, g.center_lon], {
                     radius: g.radius_meters,
+                    color: g.color ?? '#3388ff',
+                    fillColor: g.color ?? '#3388ff',
                 })
                     .addTo(this.geofenceLayer!)
                     .bindPopup(

@@ -547,6 +547,39 @@
   width: 100%;
 }
 
+.geofence-color {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.geofence-color-label {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.geofence-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.geofence-color-input {
+  width: 50px;
+  height: 40px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.geofence-color-preview {
+  flex: 1;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 .geofence-map {
   display: flex;
   flex-direction: column;
