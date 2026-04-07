@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../src/services/authService', () => ({
   authService: {
@@ -8,11 +8,19 @@ vi.mock('../../src/services/authService', () => ({
   },
 }))
 
+let Signup: typeof import('../../src/components/Signup').Signup
+
+beforeAll(async () => {
+  ;({ Signup } = await import('../../src/components/Signup'))
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
 describe('Signup', () => {
   it('validates confirm password mismatch', async () => {
     const user = userEvent.setup()
-    const { Signup } = await import('../../src/components/Signup')
-
     render(<Signup onSignupSuccess={vi.fn()} onSwitchToLogin={vi.fn()} />)
 
     await user.type(screen.getByLabelText('Display name'), 'Ryan')
@@ -30,7 +38,6 @@ describe('Signup', () => {
     const { authService } = await import('../../src/services/authService')
     ;(authService.signUp as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({})
 
-    const { Signup } = await import('../../src/components/Signup')
     render(<Signup onSignupSuccess={vi.fn()} onSwitchToLogin={vi.fn()} />)
 
     await user.type(screen.getByLabelText('Display name'), 'Ryan Davis')
