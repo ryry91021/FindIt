@@ -19,7 +19,15 @@ const leafletIconUrl = new URL('../assets/iconUrl.png', import.meta.url).toStrin
 const leafletShadowUrl = new URL('../assets/shadowUrl.png', import.meta.url).toString()
 
 /** Leaflet-based map renderer for board locations. */
-export class FIUMapView {
+export interface FIUMapViewPort {
+    init(container: HTMLDivElement): void
+    render(boards: FIUBoardEntity[], locations: FIULocationRecordEntity[]): void
+    renderGeofences(geofences: FIUGeofenceEntity[]): void
+    destroy(): void
+}
+
+/** Leaflet-based map renderer for board locations. */
+export class FIUMapView implements FIUMapViewPort {
     private map: L.Map | null = null
     private markers: L.Marker[] = []
     private geofenceLayer: L.LayerGroup | null = null

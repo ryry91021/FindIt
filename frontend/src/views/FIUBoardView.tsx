@@ -12,14 +12,14 @@
 */
 
 import { createRef } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { ComponentType, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
-import { FIUMapView } from './FIUMapView'
-import { FIUAccountView } from './FIUAccountView'
-import { FIUGeofenceView } from './FIUGeofenceView'
-import { FIUGroupView } from './FIUGroupView'
+import { FIUMapView, type FIUMapViewPort } from './FIUMapView'
+import { FIUAccountView, type FIUAccountViewProps } from './FIUAccountView'
+import { FIUGeofenceView, type FIUGeofenceViewProps } from './FIUGeofenceView'
+import { FIUGroupView, type FIUGroupViewProps } from './FIUGroupView'
 import { FIUView } from './FIUView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
@@ -75,6 +75,22 @@ interface Props {
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
     onDeleteGeofence: (geofenceId: string) => Promise<void>
+}
+
+export type FIUBoardViewProps = Props
+
+export interface FIUBoardViewDeps {
+    createMapView(): FIUMapViewPort
+    AccountView: ComponentType<FIUAccountViewProps>
+    GeofenceView: ComponentType<FIUGeofenceViewProps>
+    GroupView: ComponentType<FIUGroupViewProps>
+}
+
+const defaultBoardViewDeps: FIUBoardViewDeps = {
+    createMapView: () => new FIUMapView(),
+    AccountView: FIUAccountView,
+    GeofenceView: FIUGeofenceView,
+    GroupView: FIUGroupView,
 }
 type State = {
     sidebarOpen: boolean
@@ -153,7 +169,8 @@ export class FIUBoardView extends FIUView<Props, State> {
 
     private mapContainerRef = createRef<HTMLDivElement>()
     private sidebarRef = createRef<HTMLElement>()
-    private mapView = new FIUMapView()
+    private readonly deps: FIUBoardViewDeps = defaultBoardViewDeps
+    private readonly mapView: FIUMapViewPort = this.deps.createMapView()
 
     private getVisibilityStorageKey(userId: string | null | undefined): string {
         return `findit.groupVisibility.${userId ?? 'anon'}`
@@ -703,6 +720,10 @@ export class FIUBoardView extends FIUView<Props, State> {
         const pendingGroupCount = this.props.pendingGroupJoinRequests.length
         const { sidebarOpen, modalOpen, activeModalAction, statusNowMs } = this.state
 
+        const AccountView = this.deps.AccountView
+        const GeofenceView = this.deps.GeofenceView
+        const GroupView = this.deps.GroupView
+
         const groupNameById = new Map<string, string>()
         ;(this.props.groups ?? []).forEach((g) => {
             if (g?.id) groupNameById.set(g.id, g.name ?? 'Untitled Group')
@@ -856,7 +877,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                         {activeModalAction === 'board-management' ? (
                             this.renderBoardManagement()
                         ) : activeModalAction === 'geofence-management' ? (
-                            <FIUGeofenceView
+                            <GeofenceView
                                 geofences={this.props.geofences}
                                 groups={this.props.groups}
                                 onCreateGeofence={this.props.onCreateGeofence}
@@ -865,7 +886,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                                 onDeleteGeofence={this.props.onDeleteGeofence}
                             />
                         ) : activeModalAction === 'group-settings' ? (
-                            <FIUGroupView
+                            <GroupView
                                 userId={this.props.userId}
                                 groups={this.props.groups}
                                 boards={this.props.boards}
@@ -896,7 +917,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                 )}
 
                 {/* Account menu (top-right overlay) */}
-                <FIUAccountView
+                <AccountView
                     userEmail={userEmail}
                     userDisplayName={this.props.userDisplayName}
                     onSignOut={onSignOut}

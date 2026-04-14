@@ -1,6 +1,6 @@
 import { Component } from 'react'
 
-type Props = {
+export type FIUAccountViewProps = {
     userEmail?: string
     userDisplayName?: string
     onSignOut: () => void
@@ -11,7 +11,7 @@ type State = {
 }
 
 /** Small account dropdown widget (email + sign out). */
-export class FIUAccountView extends Component<Props, State> {
+export class FIUAccountView extends Component<FIUAccountViewProps, State> {
     state: State = { open: false }
 
     /** Toggles the dropdown open/closed. */

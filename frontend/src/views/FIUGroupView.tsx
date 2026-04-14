@@ -8,7 +8,7 @@ import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FIUProfileModel } from '../models/FIUProfileModel'
 
-type Props = {
+export type FIUGroupViewProps = {
     userId?: string
     groups: FIUGroupEntity[]
     boards: FIUBoardEntity[]
@@ -55,7 +55,7 @@ type State = {
 }
 
 /** Presentation-only view for group settings content. */
-export class FIUGroupView extends FIUView<Props, State> {
+export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
     state: State = {
         createModalOpen: false,
         joinModalOpen: false,
@@ -83,7 +83,7 @@ export class FIUGroupView extends FIUView<Props, State> {
         void this.loadRequesterLabels(this.props.pendingJoinRequests)
     }
 
-    componentDidUpdate(prevProps: Props): void {
+    componentDidUpdate(prevProps: FIUGroupViewProps): void {
         if (prevProps.pendingJoinRequests !== this.props.pendingJoinRequests) {
             void this.loadRequesterLabels(this.props.pendingJoinRequests)
         }

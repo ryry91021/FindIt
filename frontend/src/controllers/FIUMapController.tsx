@@ -4,22 +4,22 @@
     - Delegates domain-specific actions to domain controllers
 */
 
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 import type { FIULocationRecordEntity } from '../entities/FIULocationRecordEntity'
 import { authService } from '../services/authService'
 import { supabase } from '../services/supabaseClient'
 import { FIUBoardView } from '../views/FIUBoardView'
-import type { SidebarModalAction } from '../views/FIUBoardView'
+import type { FIUBoardViewProps, SidebarModalAction } from '../views/FIUBoardView'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity } from '../models/FIUGroupModel'
 import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
 
-import { FIUBoardsController } from './FIUBoardsController'
-import { FIULocationRecordsController } from './FIULocationRecordsController'
-import { FIUGroupsController } from './FIUGroupsController'
-import { FIUGeofencesController } from './FIUGeofencesController'
+import { FIUBoardsController, type FIUBoardsControllerPort } from './FIUBoardsController'
+import { FIULocationRecordsController, type FIULocationRecordsControllerPort } from './FIULocationRecordsController'
+import { FIUGroupsController, type FIUGroupsControllerPort } from './FIUGroupsController'
+import { FIUGeofencesController, type FIUGeofencesControllerPort } from './FIUGeofencesController'
 import { FIUController } from './FIUController'
 
 
@@ -40,6 +40,22 @@ type State = {
     error: string | null
 }
 
+export interface FIUMapControllerDeps {
+    createBoardsController(): FIUBoardsControllerPort
+    createLocationsController(): FIULocationRecordsControllerPort
+    createGroupsController(): FIUGroupsControllerPort
+    createGeofencesController(): FIUGeofencesControllerPort
+    BoardView: ComponentType<FIUBoardViewProps>
+}
+
+const defaultMapControllerDeps: FIUMapControllerDeps = {
+    createBoardsController: () => new FIUBoardsController(),
+    createLocationsController: () => new FIULocationRecordsController(),
+    createGroupsController: () => new FIUGroupsController(),
+    createGeofencesController: () => new FIUGeofencesController(),
+    BoardView: FIUBoardView,
+}
+
 /**
  * Orchestrates map page request flow (no domain data logic).
  * Loads data via domain controllers and passes props to the composition view.
@@ -55,10 +71,12 @@ export class FIUMapController extends FIUController<Props, State> {
         error: null,
     }
 
-    private boardsController = new FIUBoardsController()
-    private locationsController = new FIULocationRecordsController()
-    private groupsController = new FIUGroupsController()
-    private geofencesController = new FIUGeofencesController()
+    private readonly deps: FIUMapControllerDeps = defaultMapControllerDeps
+
+    private readonly boardsController: FIUBoardsControllerPort = this.deps.createBoardsController()
+    private readonly locationsController: FIULocationRecordsControllerPort = this.deps.createLocationsController()
+    private readonly groupsController: FIUGroupsControllerPort = this.deps.createGroupsController()
+    private readonly geofencesController: FIUGeofencesControllerPort = this.deps.createGeofencesController()
 
     private locationLogsChannel: RealtimeChannel | null = null
     private locationLogsChannelUserId: string | undefined
@@ -384,8 +402,10 @@ export class FIUMapController extends FIUController<Props, State> {
         const { userDisplayName } = this.props
         const { boards, locations, groups, groupMembers, pendingGroupJoinRequests, geofences, error } = this.state
 
+        const BoardView = this.deps.BoardView
+
         return (
-            <FIUBoardView
+            <BoardView
                 userId={this.props.userId}
                 userEmail={userEmail}
                 userDisplayName={userDisplayName}

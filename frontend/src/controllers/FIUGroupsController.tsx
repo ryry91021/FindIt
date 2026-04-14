@@ -2,8 +2,24 @@ import { FIUGroupModel } from '../models/FIUGroupModel'
 import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import type { FIUGroupJoinRequestEntity, FIUGroupMemberEntity } from '../models/FIUGroupModel'
 
+export interface FIUGroupsControllerPort {
+    loadGroups(userId?: string): Promise<FIUGroupEntity[]>
+    loadPendingJoinRequests(userId?: string): Promise<FIUGroupJoinRequestEntity[]>
+    loadMembersForGroups(groupIds: string[]): Promise<FIUGroupMemberEntity[]>
+
+    createGroup(name: string, boardIds: string[], userId?: string): Promise<void>
+    deleteGroup(groupId: string): Promise<void>
+    renameGroup(groupId: string, name: string): Promise<void>
+    requestJoinGroup(groupId: string, userId?: string): Promise<void>
+    respondToJoinRequest(requestId: string, accept: boolean, userId?: string): Promise<void>
+    leaveGroup(groupId: string, userId?: string): Promise<void>
+    setMemberRole(groupId: string, memberUserId: string, role: 'admin' | 'member'): Promise<void>
+    removeMember(groupId: string, memberUserId: string): Promise<void>
+    transferOwnership(groupId: string, newOwnerUserId: string, userId?: string): Promise<void>
+}
+
 /** Domain controller for Group operations (no UI, no cross-domain orchestration). */
-export class FIUGroupsController {
+export class FIUGroupsController implements FIUGroupsControllerPort {
     async loadGroups(userId?: string): Promise<FIUGroupEntity[]> {
         return await FIUGroupModel.fetchGroupsForUser(userId)
     }

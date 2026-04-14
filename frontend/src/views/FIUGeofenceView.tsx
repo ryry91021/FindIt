@@ -6,7 +6,7 @@ import { geocodeAddress } from '../services/geocodingService'
 import { FIUView } from './FIUView'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 
-type Props = {
+export type FIUGeofenceViewProps = {
     geofences: FIUGeofenceEntity[]
     groups: FIUGroupEntity[]
     onCreateGeofence: (
@@ -54,7 +54,7 @@ type State = {
     confirmDeleteId: string | null
 }
 
-export class FIUGeofenceView extends FIUView<Props, State> {
+export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
     state: State = {
         mode: 'list',
         editingId: null,
@@ -76,7 +76,7 @@ export class FIUGeofenceView extends FIUView<Props, State> {
     private miniMarker: L.Marker | null = null
     private miniCircle: L.Circle | null = null
 
-    componentDidUpdate(_prevProps: Props, prevState: State): void {
+    componentDidUpdate(_prevProps: FIUGeofenceViewProps, prevState: State): void {
         const enteredEdit = prevState.mode !== 'edit' && this.state.mode === 'edit'
         const exitedEdit = prevState.mode === 'edit' && this.state.mode !== 'edit'
 

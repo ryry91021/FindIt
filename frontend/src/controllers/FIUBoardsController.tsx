@@ -1,8 +1,17 @@
 import { FIUBoardModel } from '../models/FIUBoardModel'
 import type { FIUBoardEntity } from '../entities/FIUBoardEntity'
 
+export interface FIUBoardsControllerPort {
+    loadBoards(userId?: string): Promise<FIUBoardEntity[]>
+    createBoard(displayName: string, deviceEui: string, userId?: string): Promise<void>
+    deleteBoard(boardId: string): Promise<void>
+    renameBoard(boardId: string, newName: string): Promise<void>
+    assignBoardToGroup(boardId: string, groupId: string): Promise<void>
+    setBoardsForGroup(groupId: string, selectedBoardIds: string[], boardsState: FIUBoardEntity[]): Promise<void>
+}
+
 /** Domain controller for Board operations (no UI, no cross-domain orchestration). */
-export class FIUBoardsController {
+export class FIUBoardsController implements FIUBoardsControllerPort {
     async loadBoards(userId?: string): Promise<FIUBoardEntity[]> {
         return await FIUBoardModel.fetchBoardsForUser(userId)
     }
