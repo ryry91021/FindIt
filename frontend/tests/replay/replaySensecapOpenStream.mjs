@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import readline from 'node:readline'
 import crypto from 'node:crypto'
 import dotenv from 'dotenv'
@@ -8,7 +9,7 @@ import dotenv from 'dotenv'
 function loadEnvFiles() {
   // Load local env for convenience. This keeps secrets out of git and avoids
   // needing to prefix env vars for every replay run.
-  const here = new URL('.', import.meta.url).pathname
+  const here = fileURLToPath(new URL('.', import.meta.url))
   const candidates = [
     resolve(process.cwd(), '.env.local'),
     resolve(process.cwd(), '..', '.env.local'),
@@ -33,7 +34,7 @@ const LON_ID = '4197'
 
 function parseArgs(argv) {
   const args = {
-    file: new URL('./mock_stream.ndjson', import.meta.url).pathname,
+    file: fileURLToPath(new URL('./mock_stream.ndjson', import.meta.url)),
     speed: 0,
     delayMs: null,
     onlyDeviceEui: null,
