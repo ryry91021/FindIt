@@ -26,6 +26,7 @@ import type { FIUGroupJoinRequestEntity } from '../models/FIUGroupModel'
 import type { FIUGroupMemberEntity } from '../models/FIUGroupModel'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { LogListModal } from '../components/LogListModal'
 import '../components/Dashboard.css'
 
 const BOARD_ONLINE_WINDOW_MS = 5 * 60_000
@@ -111,6 +112,7 @@ type State = {
     confirmBoardDeleteOpen: boolean
     groupVisibilityById: Record<string, boolean>
     visibilityUserId: string | null
+    logsModalOpen: boolean
 
     /** Used to re-render online/offline indicators as time passes. */
     statusNowMs: number
@@ -142,8 +144,17 @@ export class FIUBoardView extends FIUView<Props, State> {
         confirmBoardDeleteOpen: false,
         groupVisibilityById: {},
         visibilityUserId: null,
+        logsModalOpen: false,
 
         statusNowMs: Date.now(),
+    }
+
+    private openLogsModal = () => {
+        this.setState({ logsModalOpen: true })
+    }
+
+    private closeLogsModal = () => {
+        this.setState({ logsModalOpen: false })
     }
 
     private isBoardOnline(boardId: string, locations: FIULocationRecordEntity[], nowMs: number): boolean {
@@ -718,7 +729,7 @@ export class FIUBoardView extends FIUView<Props, State> {
     render() {
         const { userEmail, boards, locations, error, onSignOut } = this.props
         const pendingGroupCount = this.props.pendingGroupJoinRequests.length
-        const { sidebarOpen, modalOpen, activeModalAction, statusNowMs } = this.state
+        const { sidebarOpen, modalOpen, activeModalAction, statusNowMs, logsModalOpen } = this.state
 
         const AccountView = this.deps.AccountView
         const GeofenceView = this.deps.GeofenceView
@@ -818,6 +829,15 @@ export class FIUBoardView extends FIUView<Props, State> {
                                     )}
                                 </button>
                             </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    className="sidebar-link"
+                                    onClick={this.openLogsModal}
+                                >
+                                    Logs Playback
+                                </button>
+                            </li>
                         </ul>
                     </nav>
 
@@ -915,6 +935,14 @@ export class FIUBoardView extends FIUView<Props, State> {
                         )}
                     </Modal>
                 )}
+
+                <LogListModal
+                    open={logsModalOpen}
+                    onClose={this.closeLogsModal}
+                    groups={this.props.groups}
+                    boards={this.props.boards}
+                    initialGroupId={this.props.groups[0]?.id ?? null}
+                />
 
                 {/* Account menu (top-right overlay) */}
                 <AccountView

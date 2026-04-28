@@ -7,6 +7,7 @@ import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { FIUProfileModel } from '../models/FIUProfileModel'
+import { LogListModal } from '../components/LogListModal'
 
 export type FIUGroupViewProps = {
     userId?: string
@@ -52,6 +53,8 @@ type State = {
     requesterLabelById: Record<string, string>
     transferGroupId: string | null
     transferToUserId: string
+    logsModalOpen: boolean
+    logsGroupId: string | null
 }
 
 /** Presentation-only view for group settings content. */
@@ -75,6 +78,8 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
         requesterLabelById: {},
         transferGroupId: null,
         transferToUserId: '',
+        logsModalOpen: false,
+        logsGroupId: null,
     }
 
     private requesterLabelLoadSeq = 0
@@ -357,6 +362,14 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
         this.setState({ confirmDeleteGroupId: null })
     }
 
+    private openLogsModal = (groupId: string | null) => {
+        this.setState({ logsModalOpen: true, logsGroupId: groupId })
+    }
+
+    private closeLogsModal = () => {
+        this.setState({ logsModalOpen: false, logsGroupId: null })
+    }
+
     /** Renders group list, actions, and modal dialogs for group workflows. */
     render() {
         const { groups, boards, geofences, groupMembers, pendingJoinRequests } = this.props
@@ -379,6 +392,8 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
             requesterLabelById,
             transferGroupId,
             transferToUserId,
+            logsModalOpen,
+            logsGroupId,
         } = this.state
 
         const getOwnerIdForGroup = (group: FIUGroupEntity): string | null => {
@@ -465,6 +480,14 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
                                         style={{ display: canModerate(getMyRoleForGroup(group)) ? undefined : 'none' }}
                                     >
                                         Share
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="board-management-button"
+                                        onClick={() => this.openLogsModal(group.id)}
+                                        disabled={busy}
+                                    >
+                                        Logs
                                     </button>
 
                                     {getMyRoleForGroup(group) !== 'owner' ? (
@@ -827,6 +850,14 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
                         <button
                             type="button"
                             className="board-management-button"
+                            onClick={() => this.openLogsModal(groups[0]?.id ?? null)}
+                            disabled={groups.length === 0}
+                        >
+                            Logs
+                        </button>
+                        <button
+                            type="button"
+                            className="board-management-button"
                             onClick={this.openCreateModal}
                         >
                             Create Group
@@ -1019,6 +1050,14 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
                     busy={busy}
                     confirmLabel="Confirm Remove"
                     cancelLabel="Cancel"
+                />
+
+                <LogListModal
+                    open={logsModalOpen}
+                    onClose={this.closeLogsModal}
+                    groups={groups}
+                    boards={boards}
+                    initialGroupId={logsGroupId}
                 />
             </>
         )
