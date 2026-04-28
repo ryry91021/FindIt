@@ -25,9 +25,9 @@ static constexpr uint32_t STATIONARY_TIMEOUT_MS     = 5 * 60 * 1000;
 static constexpr uint32_t STATIONARY_HEARTBEAT_MS   = 15 * 60 * 1000;
 static constexpr uint32_t GPS_DEBUG_PRINT_MS        = 3000;
 static constexpr uint32_t SYNC_DEBUG_PRINT_MS       = 5000;
-static constexpr uint32_t BUTTON_LONG_PRESS_MS      = 3000;
 static constexpr uint32_t TEST_MODE_AUTO_TIMEOUT_MS = 30 * 60 * 1000;
-static constexpr uint32_t STATIONARY_IDLE_DELAY_MS  = 500;
+static constexpr uint32_t LOW_POWER_IDLE_DELAY_MS   = 1000;
+static constexpr uint32_t PRESS_WINDOW_MS           = 1800;
 
 // ============================================================
 // Sensor base
@@ -84,7 +84,7 @@ public:
   }
 
   FIFReadPolicy policy() const override {
-    return FIFReadPolicy::EveryCycle;
+    return FIFReadPolicy::ExternalEvent;
   }
 
   bool hasFix() const { return hasFix_; }
@@ -119,6 +119,7 @@ public:
 
     const float magnitudeSq = (x_ * x_) + (y_ * y_) + (z_ * z_);
     const float delta = fabsf(magnitudeSq - lastMagnitudeSq_);
+
     movedRecently_ = (delta > motionThresholdSqDelta_);
     lastMagnitudeSq_ = magnitudeSq;
   }
@@ -138,6 +139,7 @@ private:
   float z_ = 0.0f;
   float lastMagnitudeSq_ = 0.0f;
   bool movedRecently_ = true;
+
   static constexpr float motionThresholdSqDelta_ = 0.03f;
 };
 
@@ -207,10 +209,12 @@ public:
         route = route0_;
         routeLen = sizeof(route0_) / sizeof(route0_[0]);
         break;
+
       case 1:
         route = route1_;
         routeLen = sizeof(route1_) / sizeof(route1_[0]);
         break;
+
       default:
         route = route0_;
         routeLen = sizeof(route0_) / sizeof(route0_[0]);
@@ -223,6 +227,7 @@ public:
     lat = p.lat;
     lon = p.lon;
     index_++;
+
     return true;
   }
 
@@ -267,13 +272,34 @@ constexpr TestPoint TestRouteProvider::route1_[];
 
 enum class TrackerMode {
   NormalActive,
-  NormalStationary,
-  TestMode
+  StationaryLowPower,
+  TestMode,
+  Emergency
 };
+
+static const char* trackerModeToString(TrackerMode mode) {
+  switch (mode) {
+    case TrackerMode::NormalActive:
+      return "normal_active";
+
+    case TrackerMode::StationaryLowPower:
+      return "stationary_low_power";
+
+    case TrackerMode::TestMode:
+      return "test_mode";
+
+    case TrackerMode::Emergency:
+      return "emergency";
+
+    default:
+      return "unknown";
+  }
+}
 
 struct TrackerRuntimeConfig {
   bool testModeEnabled = false;
   uint8_t testRouteId = 0;
+
   uint32_t activeUplinkPeriodMs = ACTIVE_UPLINK_PERIOD_MS;
   uint32_t testUplinkPeriodMs = TEST_UPLINK_PERIOD_MS;
   uint32_t stationaryTimeoutMs = STATIONARY_TIMEOUT_MS;
@@ -284,12 +310,17 @@ struct TrackerRuntimeConfig {
 struct TrackerRuntimeState {
   TrackerMode mode = TrackerMode::NormalActive;
   TrackerMode previousMode = TrackerMode::NormalActive;
+
   uint32_t lastUplinkMs = 0;
   uint32_t lastMotionMs = 0;
   uint32_t testModeStartedMs = 0;
+
   bool manualCollectRequested = false;
   bool shockTrigCollect = false;
   bool shockFlag = false;
+
+  bool recordingEnabled = false;
+  uint32_t recordingSessionId = 0;
 };
 
 // ============================================================
@@ -327,8 +358,12 @@ public:
     wm1110_at_config.begin();
 
     for (size_t i = 0; i < sensorCount_; ++i) {
-      if (sensors_[i]) sensors_[i]->begin();
+      if (sensors_[i]) {
+        sensors_[i]->begin();
+      }
     }
+
+    uartGps_.begin();
 
     primeStaleSensorsOnce();
     geo_.run();
@@ -342,8 +377,10 @@ public:
         case FIFReadPolicy::EveryCycle:
           sensors_[i]->read();
           break;
+
         case FIFReadPolicy::PrimeOnce:
           break;
+
         case FIFReadPolicy::ExternalEvent:
           break;
       }
@@ -363,12 +400,10 @@ public:
   }
 
   bool collectAndQueueCustomLocationUplink(double lat, double lon, bool isTestMode) {
-    (void)isTestMode; // keep signature for now, but unused
-
     uint8_t customPayload[8] = {0};
 
     const uint32_t lon_u = static_cast<uint32_t>(lround((lon + 180.0) * 1000000.0));
-    const uint32_t lat_u = static_cast<uint32_t>(lround((lat +  90.0) * 1000000.0));
+    const uint32_t lat_u = static_cast<uint32_t>(lround((lat + 90.0) * 1000000.0));
 
     customPayload[0] = (lon_u >> 24) & 0xFF;
     customPayload[1] = (lon_u >> 16) & 0xFF;
@@ -397,18 +432,41 @@ public:
     Serial.print(" lat=");
     Serial.println(lat, 6);
 
-    Serial.print("Location encoded lon_u=");
-    Serial.print(lon_u);
-    Serial.print(" lat_u=");
-    Serial.println(lat_u);
+    geo_.insertIntoTxQueue(customBuf_, customSize_);
+    return true;
+  }
 
-    Serial.print("Custom payload hex: ");
-    for (uint8_t i = 0; i < customSize_; ++i) {
-      if (customBuf_[i] < 0x10) Serial.print('0');
-      Serial.print(customBuf_[i], HEX);
-      Serial.print(' ');
+  bool collectAndQueueRecordingMarker(bool recordingStarted,
+                                      uint32_t sessionId,
+                                      TrackerMode mode) {
+    uint8_t recordPayload[24] = {0};
+
+    const char* marker = recordingStarted ? "record:start" : "record:end";
+
+    strncpy((char*)recordPayload, marker, 15);
+
+    recordPayload[16] = (sessionId >> 24) & 0xFF;
+    recordPayload[17] = (sessionId >> 16) & 0xFF;
+    recordPayload[18] = (sessionId >> 8) & 0xFF;
+    recordPayload[19] = sessionId & 0xFF;
+
+    recordPayload[20] = static_cast<uint8_t>(mode);
+    recordPayload[21] = recordingStarted ? 1 : 2;
+
+    if (!tracker_.packUplinkCustomDatas(recordPayload, sizeof(recordPayload))) {
+      Serial.println("packUplinkCustomDatas failed for recording marker");
+      return false;
     }
-    Serial.println();
+
+    tracker_.getUplinkCustomDatas(customBuf_, &customSize_);
+
+    Serial.print("QUEUEING RECORDING MARKER: ");
+    Serial.print(marker);
+    Serial.print(" session=");
+    Serial.println(sessionId);
+
+    Serial.print("Recording marker payload ASCII: ");
+    Serial.println(marker);
 
     geo_.insertIntoTxQueue(customBuf_, customSize_);
     return true;
@@ -416,7 +474,7 @@ public:
 
   void queueStatusLog(TrackerMode mode, uint8_t routeId, bool testEnabled) {
     Serial.print("STATUS mode=");
-    Serial.print(modeToString(mode));
+    Serial.print(trackerModeToString(mode));
     Serial.print(" testEnabled=");
     Serial.print(testEnabled ? "true" : "false");
     Serial.print(" route=");
@@ -428,15 +486,6 @@ public:
   FIFUARTGPS& uartGps() { return uartGps_; }
 
 private:
-  static const char* modeToString(TrackerMode mode) {
-    switch (mode) {
-      case TrackerMode::NormalActive: return "normal_active";
-      case TrackerMode::NormalStationary: return "normal_stationary";
-      case TrackerMode::TestMode: return "test_mode";
-      default: return "unknown";
-    }
-  }
-
   void primeStaleSensorsOnce() {
     if (stalePrimed_) return;
 
@@ -444,6 +493,7 @@ private:
 
     for (size_t i = 0; i < sensorCount_; ++i) {
       if (!sensors_[i]) continue;
+
       if (sensors_[i]->policy() == FIFReadPolicy::PrimeOnce) {
         sensors_[i]->read();
       }
@@ -456,6 +506,7 @@ private:
   Tracker_Peripheral& tracker_;
   WM1110_Geolocation& geo_;
   FIFUARTGPS& uartGps_;
+
   FIFSensor** sensors_ = nullptr;
   size_t sensorCount_ = 0;
 
@@ -493,11 +544,13 @@ public:
 
   void updateShockState() {
     board_.tracker().getLIS3DHTRIrqStatus(&state_.shockFlag);
+
     if (state_.shockFlag) {
       if (!state_.shockTrigCollect) {
         state_.shockTrigCollect = true;
         board_.tracker().setSensorEventStatus(TRACKER_STATE_BIT5_DEV_SHOCK);
       }
+
       board_.tracker().clearShockFlag();
     }
 
@@ -524,16 +577,51 @@ public:
     board_.queueStatusLog(state_.mode, config_.testRouteId, config_.testModeEnabled);
   }
 
+  void toggleRecordingMode() {
+    if (!state_.recordingEnabled) {
+      state_.recordingEnabled = true;
+      state_.recordingSessionId = millis();
+
+      Serial.print("RECORDING STARTED, session=");
+      Serial.println(state_.recordingSessionId);
+
+      board_.collectAndQueueRecordingMarker(
+        true,
+        state_.recordingSessionId,
+        state_.mode
+      );
+    } else {
+      Serial.print("RECORDING ENDED, session=");
+      Serial.println(state_.recordingSessionId);
+
+      board_.collectAndQueueRecordingMarker(
+        false,
+        state_.recordingSessionId,
+        state_.mode
+      );
+
+      state_.recordingEnabled = false;
+    }
+  }
+
+  bool isRecording() const {
+    return state_.recordingEnabled;
+  }
+
   bool isTestMode() const {
     return state_.mode == TrackerMode::TestMode;
   }
 
-  bool isStationaryMode() const {
-    return state_.mode == TrackerMode::NormalStationary;
+  bool isLowPowerMode() const {
+    return state_.mode == TrackerMode::StationaryLowPower;
   }
 
   bool isActiveMode() const {
     return state_.mode == TrackerMode::NormalActive;
+  }
+
+  bool isEmergencyMode() const {
+    return state_.mode == TrackerMode::Emergency;
   }
 
   void updateMode() {
@@ -559,11 +647,17 @@ public:
 
     state_.testModeStartedMs = 0;
 
+    if (state_.manualCollectRequested) {
+      state_.mode = TrackerMode::Emergency;
+      logModeChangeIfNeeded();
+      return;
+    }
+
     const bool stationaryTooLong =
       (now - state_.lastMotionMs) >= config_.stationaryTimeoutMs;
 
     state_.mode = stationaryTooLong
-      ? TrackerMode::NormalStationary
+      ? TrackerMode::StationaryLowPower
       : TrackerMode::NormalActive;
 
     logModeChangeIfNeeded();
@@ -571,14 +665,20 @@ public:
 
   void runCycle(uint32_t nowMs) {
     switch (state_.mode) {
-      case TrackerMode::TestMode:
-        runTestCycle(nowMs);
-        break;
       case TrackerMode::NormalActive:
         runActiveCycle(nowMs);
         break;
-      case TrackerMode::NormalStationary:
-        runStationaryCycle(nowMs);
+
+      case TrackerMode::StationaryLowPower:
+        runStationaryLowPowerCycle(nowMs);
+        break;
+
+      case TrackerMode::TestMode:
+        runTestCycle(nowMs);
+        break;
+
+      case TrackerMode::Emergency:
+        runEmergencyCycle(nowMs);
         break;
     }
   }
@@ -587,7 +687,9 @@ private:
   void enableTestMode(uint8_t routeId) {
     config_.testModeEnabled = true;
     config_.testRouteId = routeId;
+
     state_.testModeStartedMs = millis();
+
     testProvider_.setRouteId(routeId);
     testProvider_.resetIndex();
   }
@@ -595,6 +697,7 @@ private:
   void disableTestMode() {
     config_.testModeEnabled = false;
     state_.testModeStartedMs = 0;
+
     testProvider_.resetIndex();
   }
 
@@ -616,17 +719,7 @@ private:
     if (state_.previousMode == state_.mode) return;
 
     Serial.print("MODE CHANGED TO ");
-    switch (state_.mode) {
-      case TrackerMode::NormalActive:
-        Serial.println("NormalActive");
-        break;
-      case TrackerMode::NormalStationary:
-        Serial.println("NormalStationary");
-        break;
-      case TrackerMode::TestMode:
-        Serial.println("TestMode");
-        break;
-    }
+    Serial.println(trackerModeToString(state_.mode));
   }
 
   void runActiveCycle(uint32_t nowMs) {
@@ -640,11 +733,31 @@ private:
 
     double lat = 0.0;
     double lon = 0.0;
+
     if (gpsProvider_.getLocation(lat, lon)) {
       board_.collectAndQueueCustomLocationUplink(lat, lon, false);
     } else {
       Serial.println("Skipping custom GPS uplink: no fix");
     }
+
+    finalizeCycle(nowMs);
+  }
+
+  void runStationaryLowPowerCycle(uint32_t nowMs) {
+    if (state_.shockTrigCollect) {
+      Serial.println("Motion detected in low-power mode; returning to active tracking");
+      state_.mode = TrackerMode::NormalActive;
+      return;
+    }
+
+    if (!uplinkDue(nowMs, config_.stationaryHeartbeatMs)) {
+      return;
+    }
+
+    Serial.println("LOW POWER HEARTBEAT");
+
+    board_.collectAndQueueNativeSensorUplink();
+    board_.queueStatusLog(state_.mode, config_.testRouteId, config_.testModeEnabled);
 
     finalizeCycle(nowMs);
   }
@@ -660,6 +773,7 @@ private:
 
     double lat = 0.0;
     double lon = 0.0;
+
     if (testProvider_.getLocation(lat, lon)) {
       board_.collectAndQueueCustomLocationUplink(lat, lon, true);
     }
@@ -667,17 +781,22 @@ private:
     finalizeCycle(nowMs);
   }
 
-  void runStationaryCycle(uint32_t nowMs) {
-    if (!uplinkDue(nowMs, config_.stationaryHeartbeatMs) &&
-        !state_.manualCollectRequested &&
-        !state_.shockTrigCollect) {
-      return;
-    }
+  void runEmergencyCycle(uint32_t nowMs) {
+    Serial.println("EMERGENCY / SOS UPLINK");
 
     board_.collectAndQueueNativeSensorUplink();
-    board_.queueStatusLog(state_.mode, config_.testRouteId, config_.testModeEnabled);
+
+    double lat = 0.0;
+    double lon = 0.0;
+
+    if (gpsProvider_.getLocation(lat, lon)) {
+      board_.collectAndQueueCustomLocationUplink(lat, lon, false);
+    } else {
+      Serial.println("Emergency uplink sent without GPS fix");
+    }
 
     finalizeCycle(nowMs);
+    state_.mode = TrackerMode::NormalActive;
   }
 
 private:
@@ -685,6 +804,7 @@ private:
   FIFAccelerometer& accel_;
   ILocationProvider& gpsProvider_;
   TestRouteProvider& testProvider_;
+
   TrackerRuntimeConfig config_;
   TrackerRuntimeState state_;
 };
@@ -702,48 +822,45 @@ public:
     bool pressedEvent = false;
     tracker.getUserButtonIrqStatus(&pressedEvent);
 
-    uint32_t now = millis();
+    const uint32_t now = millis();
 
     if (pressedEvent) {
       tracker.clearUserButtonFlag();
 
-      if (waitingForSecondPress_) {
-        if ((now - firstPressMs_) <= DOUBLE_PRESS_WINDOW_MS) {
-          waitingForSecondPress_ = false;
-          controller_.toggleTestMode();
-          Serial.println("DOUBLE PRESS: toggled test mode");
-          return;
-        } else {
-          // Too late; treat previous press as single
-          controller_.requestManualCollect();
-          Serial.println("SINGLE PRESS: manual uplink requested");
+      pressCount_++;
 
-          // Start a new first press window
-          firstPressMs_ = now;
-          waitingForSecondPress_ = true;
-          return;
-        }
-      } else {
+      if (pressCount_ == 1) {
         firstPressMs_ = now;
-        waitingForSecondPress_ = true;
+      }
+
+      if (pressCount_ >= 3 && ((now - firstPressMs_) <= PRESS_WINDOW_MS)) {
+        pressCount_ = 0;
+        controller_.toggleRecordingMode();
+        Serial.println("TRIPLE PRESS: toggled recording mode");
         return;
       }
+
+      return;
     }
 
-    // If the window expires and no second press comes,
-    // the first press becomes a normal manual uplink.
-    if (waitingForSecondPress_ && ((now - firstPressMs_) > DOUBLE_PRESS_WINDOW_MS)) {
-      waitingForSecondPress_ = false;
-      controller_.requestManualCollect();
-      Serial.println("SINGLE PRESS: manual uplink requested");
+    if (pressCount_ > 0 && ((now - firstPressMs_) > PRESS_WINDOW_MS)) {
+      if (pressCount_ == 1) {
+        controller_.requestManualCollect();
+        Serial.println("SINGLE PRESS: manual/SOS uplink requested");
+      } else if (pressCount_ == 2) {
+        controller_.toggleTestMode();
+        Serial.println("DOUBLE PRESS: toggled test mode");
+      }
+
+      pressCount_ = 0;
     }
   }
 
 private:
   TrackerController& controller_;
-  bool waitingForSecondPress_ = false;
+
+  uint8_t pressCount_ = 0;
   uint32_t firstPressMs_ = 0;
-  static constexpr uint32_t DOUBLE_PRESS_WINDOW_MS = 1500;
 };
 
 // ============================================================
@@ -759,8 +876,7 @@ static FIFBatteryMonitoring batt(tracker);
 
 static FIFSensor* sensorList[] = {
   &accel,
-  &batt,
-  &uartGps
+  &batt
 };
 
 static FIFDevBoard board(
@@ -773,7 +889,14 @@ static FIFDevBoard board(
 
 static GpsLocationProvider gpsProvider(uartGps);
 static TestRouteProvider testRouteProvider;
-static TrackerController controller(board, accel, gpsProvider, testRouteProvider);
+
+static TrackerController controller(
+  board,
+  accel,
+  gpsProvider,
+  testRouteProvider
+);
+
 static ButtonModeController buttonController(controller);
 
 // ============================================================
@@ -796,17 +919,16 @@ void setup() {
   Serial.println(STATIONARY_TIMEOUT_MS);
   Serial.print("Stationary heartbeat ms = ");
   Serial.println(STATIONARY_HEARTBEAT_MS);
-  Serial.println("Short press = manual uplink");
-  Serial.println("Long press = toggle test mode");
+  Serial.println("Single press = manual/SOS uplink");
+  Serial.println("Double press = toggle test mode");
+  Serial.println("Triple press = toggle recording mode");
 }
 
 void loop() {
   uint32_t sleepTime = board.geo().lbmxProcess();
   board.geo().modemLedActionProcess();
 
-  // Only read GPS continuously while in active mode.
-  // This reduces work in stationary mode and avoids wasting effort in test mode.
-  if (controller.isActiveMode()) {
+  if (controller.isActiveMode() || controller.isEmergencyMode()) {
     board.uartGps().read();
   }
 
@@ -836,6 +958,7 @@ void loop() {
   static uint32_t lastSyncPrint = 0;
   if (millis() - lastSyncPrint > SYNC_DEBUG_PRINT_MS) {
     lastSyncPrint = millis();
+
     Serial.print("time_sync_flag=");
     Serial.println(board.geo().time_sync_flag ? "true" : "false");
   }
@@ -843,8 +966,11 @@ void loop() {
   if (board.geo().time_sync_flag == true) {
     buttonController.update(board.tracker());
 
-    accel.read();
-    controller.updateShockState();
+    if (!controller.isTestMode()) {
+      accel.read();
+      controller.updateShockState();
+    }
+
     controller.updateMode();
     controller.runCycle(smtc_modem_hal_get_time_in_ms());
   }
@@ -865,8 +991,9 @@ void loop() {
   }
 
   uint32_t idleDelay = EXECUTION_PERIOD_MS;
-  if (controller.isStationaryMode()) {
-    idleDelay = STATIONARY_IDLE_DELAY_MS;
+
+  if (controller.isLowPowerMode()) {
+    idleDelay = LOW_POWER_IDLE_DELAY_MS;
   }
 
   delay(min(sleepTime, idleDelay));
