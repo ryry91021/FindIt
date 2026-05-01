@@ -18,17 +18,17 @@
 // Timing constants
 // ============================================================
 
-static constexpr uint32_t EXECUTION_PERIOD_MS       = 50;
-static constexpr uint32_t ACTIVE_UPLINK_PERIOD_MS   = 60 * 1000;
-static constexpr uint32_t TEST_UPLINK_PERIOD_MS     = 20 * 1000;
+static constexpr uint32_t EXECUTION_PERIOD_MS       = 25;
+static constexpr uint32_t ACTIVE_UPLINK_PERIOD_MS   = 15 * 1000;
+static constexpr uint32_t TEST_UPLINK_PERIOD_MS     = 10 * 1000;
 static constexpr uint32_t STATIONARY_TIMEOUT_MS     = 5 * 60 * 1000;
 static constexpr uint32_t STATIONARY_HEARTBEAT_MS   = 15 * 60 * 1000;
 static constexpr uint32_t GPS_DEBUG_PRINT_MS        = 3000;
 static constexpr uint32_t SYNC_DEBUG_PRINT_MS       = 5000;
 static constexpr uint32_t TEST_MODE_AUTO_TIMEOUT_MS = 30 * 60 * 1000;
 static constexpr uint32_t LOW_POWER_IDLE_DELAY_MS   = 1000;
-static constexpr uint32_t PRESS_WINDOW_MS           = 1800;
-
+static constexpr uint32_t PRESS_WINDOW_MS           = 2500;
+static constexpr uint32_t BUTTON_DEBOUNCE_MS        = 350;
 // ============================================================
 // Sensor base
 // ============================================================
@@ -827,18 +827,20 @@ public:
     if (pressedEvent) {
       tracker.clearUserButtonFlag();
 
+      if ((now - lastAcceptedPressMs_) < BUTTON_DEBOUNCE_MS) {
+        return;
+      }
+
+      lastAcceptedPressMs_ = now;
+
       pressCount_++;
 
       if (pressCount_ == 1) {
         firstPressMs_ = now;
       }
 
-      if (pressCount_ >= 3 && ((now - firstPressMs_) <= PRESS_WINDOW_MS)) {
-        pressCount_ = 0;
-        controller_.toggleRecordingMode();
-        Serial.println("TRIPLE PRESS: toggled recording mode");
-        return;
-      }
+      Serial.print("BUTTON PRESS COUNT=");
+      Serial.println(pressCount_);
 
       return;
     }
@@ -847,9 +849,14 @@ public:
       if (pressCount_ == 1) {
         controller_.requestManualCollect();
         Serial.println("SINGLE PRESS: manual/SOS uplink requested");
-      } else if (pressCount_ == 2) {
+      } 
+      else if (pressCount_ == 2) {
         controller_.toggleTestMode();
         Serial.println("DOUBLE PRESS: toggled test mode");
+      } 
+      else if (pressCount_ >= 3) {
+        controller_.toggleRecordingMode();
+        Serial.println("TRIPLE PRESS: toggled recording mode");
       }
 
       pressCount_ = 0;
@@ -861,6 +868,7 @@ private:
 
   uint8_t pressCount_ = 0;
   uint32_t firstPressMs_ = 0;
+  uint32_t lastAcceptedPressMs_ = 0;
 };
 
 // ============================================================
