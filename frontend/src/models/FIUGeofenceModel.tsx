@@ -8,7 +8,6 @@ export type FIUGeofenceCreateInput = {
     center_lat: number
     center_lon: number
     radius_meters: number
-    group_id?: string | null
     enabled?: boolean
     color?: string
 }
@@ -18,7 +17,6 @@ export type FIUGeofenceUpdatePatch = Partial<{
     center_lat: number
     center_lon: number
     radius_meters: number
-    group_id: string | null
     enabled: boolean
     color: string
 }>
@@ -86,7 +84,6 @@ export class FIUGeofenceModel extends FIUModel<FIUGeofenceEntity> {
             center_lat: input.center_lat,
             center_lon: input.center_lon,
             radius_meters: input.radius_meters,
-            group_id: input.group_id ?? null,
             enabled: input.enabled ?? true,
             color: input.color ?? '#3388ff',
         }
@@ -105,7 +102,6 @@ export class FIUGeofenceModel extends FIUModel<FIUGeofenceEntity> {
                 center_lat: input.center_lat,
                 center_lon: input.center_lon,
                 radius_meters: input.radius_meters,
-                group_id: input.group_id ?? null,
                 color: input.color ?? '#3388ff',
             })
             if (!fallbackErr1) return
@@ -119,7 +115,6 @@ export class FIUGeofenceModel extends FIUModel<FIUGeofenceEntity> {
                     center_lat: input.center_lat,
                     center_lon: input.center_lon,
                     radius_meters: input.radius_meters,
-                    group_id: input.group_id ?? null,
                 })
                 if (!fallbackErr2) return
 
@@ -142,7 +137,6 @@ export class FIUGeofenceModel extends FIUModel<FIUGeofenceEntity> {
                 center_lat: input.center_lat,
                 center_lon: input.center_lon,
                 radius_meters: input.radius_meters,
-                group_id: input.group_id ?? null,
                 enabled: input.enabled ?? true,
             })
             if (!fallbackErr) return

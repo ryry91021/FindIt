@@ -287,11 +287,10 @@ export class FIUMapController extends FIUController<Props, State> {
         center_lat: number,
         center_lon: number,
         radius_meters: number,
-        groupId?: string | null,
         color?: string
     ): Promise<void> => {
         await this.geofencesController.createGeofence(
-            { name, center_lat, center_lon, radius_meters, enabled: true, group_id: groupId ?? null, color },
+            { name, center_lat, center_lon, radius_meters, enabled: true, color },
             this.props.userId
         )
         await this.refreshAll()
@@ -299,7 +298,7 @@ export class FIUMapController extends FIUController<Props, State> {
 
     private handleUpdateGeofence = async (
         geofenceId: string,
-        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; group_id?: string | null; color?: string }
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; color?: string }
     ): Promise<void> => {
         await this.geofencesController.updateGeofence(geofenceId, patch)
         await this.refreshAll()

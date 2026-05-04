@@ -1,20 +1,17 @@
 import { createRef } from 'react'
 import L from 'leaflet'
 import type { FIUGeofenceEntity } from '../entities/FIUGeofenceEntity'
-import type { FIUGroupEntity } from '../entities/FIUGroupEntity'
 import { geocodeAddress } from '../services/geocodingService'
 import { FIUView } from './FIUView'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 
 export type FIUGeofenceViewProps = {
     geofences: FIUGeofenceEntity[]
-    groups: FIUGroupEntity[]
     onCreateGeofence: (
         name: string,
         centerLat: number,
         centerLon: number,
         radiusMeters: number,
-        groupId?: string | null,
         color?: string
     ) => Promise<void>
     onUpdateGeofence: (
@@ -24,7 +21,6 @@ export type FIUGeofenceViewProps = {
             center_lat?: number
             center_lon?: number
             radius_meters?: number
-            group_id?: string | null
             color?: string
         }
     ) => Promise<void>
@@ -46,7 +42,6 @@ type State = {
     centerLat: number
     centerLon: number
     addressQuery: string
-    groupId: string
     color: string
     busy: boolean
     error: string | null
@@ -63,7 +58,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
         centerLat: DEFAULT_CENTER.lat,
         centerLon: DEFAULT_CENTER.lon,
         addressQuery: '',
-        groupId: '',
         color: DEFAULT_COLOR,
         busy: false,
         error: null,
@@ -194,7 +188,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
             centerLat: DEFAULT_CENTER.lat,
             centerLon: DEFAULT_CENTER.lon,
             addressQuery: '',
-            groupId: '',
             color: DEFAULT_COLOR,
             busy: false,
             mode: 'edit',
@@ -210,7 +203,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
             centerLat: Number(g.center_lat ?? DEFAULT_CENTER.lat),
             centerLon: Number(g.center_lon ?? DEFAULT_CENTER.lon),
             addressQuery: '',
-            groupId: g.group_id ?? '',
             color: g.color ?? DEFAULT_COLOR,
             busy: false,
             mode: 'edit',
@@ -222,7 +214,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
             mode: 'list',
             editingId: null,
             addressQuery: '',
-            groupId: '',
             color: DEFAULT_COLOR,
             busy: false,
             error: null,
@@ -233,9 +224,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
         const trimmed = this.state.name.trim()
         if (!trimmed) return
 
-        const groupId = this.state.groupId.trim()
-        const group_id = groupId ? groupId : null
-
         this.setState({ error: null, busy: true })
         try {
             if (this.state.editingId) {
@@ -244,7 +232,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
                     center_lat: this.state.centerLat,
                     center_lon: this.state.centerLon,
                     radius_meters: this.state.radiusMeters,
-                    group_id,
                     color: this.state.color,
                 })
             } else {
@@ -253,7 +240,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
                     this.state.centerLat,
                     this.state.centerLon,
                     this.state.radiusMeters,
-                    group_id,
                     this.state.color
                 )
             }
@@ -315,8 +301,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
 
     render() {
         const sortedGeofences = this.getSortedGeofences()
-
-        const groupOptions = (this.props.groups ?? []).filter((g) => Boolean(g?.id))
 
         const confirmDeleteId = this.state.confirmDeleteId
 
@@ -428,23 +412,6 @@ export class FIUGeofenceView extends FIUView<FIUGeofenceViewProps, State> {
                                 value={this.state.name}
                                 onChange={(e) => this.setState({ name: e.target.value })}
                             />
-                        </div>
-
-                        <div className="board-management-row">
-                            <select
-                                className="board-management-input"
-                                value={this.state.groupId}
-                                onChange={(e) => this.setState({ groupId: e.target.value })}
-                                disabled={this.state.busy}
-                                aria-label="Geofence group"
-                            >
-                                <option value="">Personal</option>
-                                {groupOptions.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name ?? 'Untitled Group'}
-                                    </option>
-                                ))}
-                            </select>
                         </div>
 
                         <div className="geofence-radius">
