@@ -68,11 +68,11 @@ interface Props {
         centerLat: number,
         centerLon: number,
         radiusMeters: number,
-        groupId?: string | null
+        color?: string
     ) => Promise<void>
     onUpdateGeofence: (
         geofenceId: string,
-        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; group_id?: string | null }
+        patch: { name?: string; center_lat?: number; center_lon?: number; radius_meters?: number; color?: string }
     ) => Promise<void>
     onToggleGeofenceEnabled: (geofenceId: string, enabled: boolean) => Promise<void>
     onDeleteGeofence: (geofenceId: string) => Promise<void>
@@ -254,10 +254,7 @@ export class FIUBoardView extends FIUView<Props, State> {
 
     private isGeofenceVisibleOnMap = (geofence: FIUGeofenceEntity | null | undefined): boolean => {
         if (!geofence) return false
-        if (!geofence.group_id) return true
-        const me = this.props.userId
-        if (me && geofence.owner_id === me) return true
-        return this.isGroupVisible(geofence.group_id)
+        return true
     }
 
     private getFilteredInputs(): {
@@ -899,7 +896,6 @@ export class FIUBoardView extends FIUView<Props, State> {
                         ) : activeModalAction === 'geofence-management' ? (
                             <GeofenceView
                                 geofences={this.props.geofences}
-                                groups={this.props.groups}
                                 onCreateGeofence={this.props.onCreateGeofence}
                                 onUpdateGeofence={this.props.onUpdateGeofence}
                                 onToggleGeofenceEnabled={this.props.onToggleGeofenceEnabled}
@@ -910,14 +906,12 @@ export class FIUBoardView extends FIUView<Props, State> {
                                 userId={this.props.userId}
                                 groups={this.props.groups}
                                 boards={this.props.boards}
-                                geofences={this.props.geofences}
                                 groupMembers={this.props.groupMembers}
                                 pendingJoinRequests={this.props.pendingGroupJoinRequests}
                                 onCreateGroup={this.props.onCreateGroup}
                                 onDeleteGroup={this.props.onDeleteGroup}
                                 onRenameGroup={this.props.onRenameGroup}
                                 onUpdateGroupBoards={this.props.onUpdateGroupBoards}
-                                onUpdateGeofence={this.props.onUpdateGeofence}
                                 onJoinGroup={this.props.onJoinGroup}
                                 onRespondToJoinRequest={this.props.onRespondToGroupJoinRequest}
                                 onLeaveGroup={this.props.onLeaveGroup}
