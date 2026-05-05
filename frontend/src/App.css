@@ -37,10 +37,11 @@
   border-bottom: 1px solid rgba(67, 97, 197, 0.15);
 }
 
+
 .landing-logo {
-  height: 200px;
+  height: 100px;
   width: auto;
-  max-width: 180px;
+  max-width: 100px;
   object-fit: contain;
   display: block;
 }
