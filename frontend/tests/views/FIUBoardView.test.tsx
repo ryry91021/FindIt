@@ -162,7 +162,7 @@ describe('FIUBoardView', () => {
     )
 
     await user.click(screen.getByLabelText('Open menu'))
-    await user.click(screen.getByRole('button', { name: 'Board Management' }))
+    await user.click(screen.getByRole('button', { name: 'Boards' }))
 
     expect(onSidebarAction).toHaveBeenCalledWith('board-management')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -212,7 +212,7 @@ describe('FIUBoardView', () => {
     )
 
     await user.click(screen.getByLabelText('Open menu'))
-    await user.click(screen.getByRole('button', { name: 'Board Management' }))
+    await user.click(screen.getByRole('button', { name: 'Boards' }))
     await user.click(screen.getByRole('button', { name: 'Edit' }))
 
     const renameInput = screen.getByPlaceholderText('Change device name')
