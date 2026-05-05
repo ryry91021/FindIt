@@ -477,6 +477,178 @@
   font-size: 13px;
 }
 
+/* NEW: Board Management Redesign */
+
+/* Add Board Form */
+.board-add-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  margin-bottom: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 200px;
+}
+
+.form-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.board-add-form .board-management-input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.board-add-form .board-management-button {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Board Cards */
+.board-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.board-card:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.board-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.board-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.board-card-device-id {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.board-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.board-card-actions .board-management-button,
+.board-card-actions .board-management-danger {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.board-card-actions .board-management-button {
+  background: #111827;
+  color: #fff;
+}
+
+.board-card-actions .board-management-button:hover:not(:disabled) {
+  background: #1f2937;
+  transform: translateY(-1px);
+}
+
+.board-card-actions .board-management-danger {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.board-card-actions .board-management-danger:hover:not(:disabled) {
+  background: #a16161;
+  transform: translateY(-1px);
+}
+
+.board-card-actions .board-management-button:disabled,
+.board-card-actions .board-management-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Boards List Container */
+.boards-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 12px 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .board-add-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-field {
+    flex: 1 1 auto;
+  }
+
+  .board-add-form .board-management-button {
+    width: 100%;
+  }
+
+  .board-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .board-card-actions {
+    width: 100%;
+  }
+
+  .board-card-actions .board-management-button,
+  .board-card-actions .board-management-danger {
+    flex: 1;
+  }
+}
+
 .geofence-page {
   display: flex;
   flex-direction: column;
@@ -627,7 +799,8 @@
 }
 
 .board-edit-compact {
-  min-height: 36px;
+  min-height: 24px;
+  padding: 5px 8px;
 }
 
 .board-edit-group-button {
@@ -751,6 +924,369 @@
   border-color: rgba(29, 78, 216, 0.55);
 }
 
+/* NEW: Group Menu Redesign Styles */
+
+/* Role color scheme */
+.group-member-role-owner {
+  background: #9333ea;
+  color: #fff;
+  border: none;
+}
+
+.group-member-role-admin {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+}
+
+.group-member-role-member {
+  background: #9ca3af;
+  color: #fff;
+  border: none;
+}
+
+/* Group header section */
+.group-header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
+  margin-bottom: 12px;
+}
+
+.group-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  flex: 1;
+  margin: 0;
+}
+
+.group-header-status {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.group-header-menu {
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  background: #111827;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.group-header-menu:hover {
+  background: #1f2937;
+}
+
+.group-header-menu:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Section containers */
+.group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  margin-bottom: 12px;
+}
+
+.group-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Members table */
+.group-members-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.group-members-table thead {
+  background: rgba(17, 24, 39, 0.05);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
+}
+
+.group-members-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.group-members-table tbody tr {
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  display: table-row;
+}
+
+.group-members-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.group-members-table td {
+  padding: 10px;
+  vertical-align: middle;
+}
+
+.group-member-col-name {
+  flex: 1;
+  min-width: 120px;
+}
+
+.group-member-col-role {
+  width: 80px;
+  text-align: center;
+}
+
+.group-member-col-actions {
+  width: 40px;
+  text-align: right;
+}
+
+/* Member role badge (replaces .group-board-pill for roles) */
+.group-member-role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Member action menu (details/summary) */
+.group-member-actions-menu {
+  display: inline-block;
+  position: relative;
+}
+
+.group-member-actions-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  user-select: none;
+}
+
+.group-member-actions-summary:hover {
+  background: #e5e7eb;
+}
+
+.group-member-actions-summary::marker {
+  display: none;
+}
+
+.group-member-actions-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+  z-index: 100;
+}
+
+.group-member-action-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  color: #111827;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.group-member-action-item:first-child {
+  border-radius: 5px 5px 0 0;
+}
+
+.group-member-action-item:last-child {
+  border-radius: 0 0 5px 5px;
+}
+
+.group-member-action-item:hover {
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+}
+
+.group-member-action-item.danger {
+  color: #b91c1c;
+}
+
+.group-member-action-item.danger:hover {
+  background: rgba(185, 28, 28, 0.1);
+  color: #dc2626;
+}
+
+/* Group status section */
+.group-status-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.group-status-label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.group-status-value {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Assigned devices section */
+.group-devices-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.group-device-pill {
+  font-size: 11px;
+  color: #111827;
+  background: rgba(29, 78, 216, 0.12);
+  border: 1px solid rgba(29, 78, 216, 0.28);
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+/* Group actions section */
+.group-actions-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Danger zone section */
+.danger-zone {
+  background: rgba(185, 28, 28, 0.08);
+  border: 2px solid rgba(185, 28, 28, 0.24);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.danger-zone-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #991b1b;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.danger-zone-description {
+  font-size: 12px;
+  color: #b91c1c;
+  margin: 0 0 8px 0;
+}
+
+.danger-zone-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.danger-zone-button {
+  border: 1px solid rgba(153, 27, 27, 0.24);
+  border-radius: 6px;
+  background: #b91c1c;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.danger-zone-button:hover {
+  background: #a16161;
+}
+
+.danger-zone-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Group action dropdown menu in header */
+.group-header-menu-details {
+  position: relative;
+  display: inline-block;
+}
+
+.group-header-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+  z-index: 100;
+}
+
+.group-header-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+  color: #111827;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.group-header-menu-item:first-child {
+  border-radius: 5px 5px 0 0;
+}
+
+.group-header-menu-item:last-child {
+  border-radius: 0 0 5px 5px;
+}
+
+.group-header-menu-item:hover {
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+}
+
 .group-modal-overlay {
   position: fixed;
   inset: 0;
@@ -768,4 +1304,169 @@
   min-height: 0;
   padding: 3px 6px;
   line-height: 1.2;
+}
+
+/* POLISH: Responsive and accessibility improvements */
+
+/* Mobile-responsive members table */
+@media (max-width: 768px) {
+  .group-members-table {
+    font-size: 12px;
+  }
+
+  .group-members-table thead {
+    display: none;
+  }
+
+  .group-members-table tbody,
+  .group-members-table tr,
+  .group-members-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .group-members-table tr {
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: 8px 0;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .group-members-table td {
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .group-members-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-right: 8px;
+    min-width: 60px;
+  }
+
+  .group-member-col-name::before {
+    content: 'Name';
+  }
+
+  .group-member-col-role::before {
+    content: 'Role';
+  }
+
+  .group-member-col-actions::before {
+    content: 'Actions';
+  }
+
+  .group-member-col-actions {
+    padding: 8px;
+    border-bottom: none;
+  }
+
+  .group-member-col-role {
+    justify-content: flex-start;
+  }
+}
+
+/* Keyboard navigation support */
+.group-member-actions-summary:focus,
+.group-header-menu:focus,
+.group-header-menu-item:focus,
+.group-member-action-item:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Enhanced button hover states */
+.board-management-button:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.group-header-menu:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+/* Improved spacing in sections */
+.group-section {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
+}
+
+.group-section:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.danger-zone {
+  box-shadow: inset 0 1px 2px rgba(185, 28, 28, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.danger-zone:hover {
+  box-shadow: inset 0 1px 3px rgba(185, 28, 28, 0.15);
+}
+
+/* Smooth menu opening animation */
+details > div {
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Better role badge sizing */
+.group-member-role-badge {
+  text-align: center;
+  min-width: 60px;
+}
+
+/* Table row hover effect */
+@media (min-width: 769px) {
+  .group-members-table tbody tr:hover {
+    background: rgba(29, 78, 216, 0.02);
+  }
+}
+
+/* Danger zone button improvements */
+.danger-zone-button {
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.danger-zone-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(185, 28, 28, 0.3);
+}
+
+.danger-zone-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Header container alignment */
+.group-header-container {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .group-header-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .group-header-menu-details {
+    align-self: flex-end;
+  }
 }

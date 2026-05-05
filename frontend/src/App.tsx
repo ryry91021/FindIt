@@ -115,9 +115,7 @@ function App() {
     return (
       <div className="landing-page">
         <header className="landing-header">
-          <div className='logo'>
-            <img src="/aWhereLogo.png" alt="aWhere" className="landing-logo" />
-          </div>  
+          <img src="/aWhereLogo.png" alt="aWhere" className="landing-logo" />
           <div className="landing-actions">
             <button onClick={() => setCurrentPage('login')} className="link-button">Log in</button>
             <button onClick={() => setCurrentPage('signup')} className="primary-button">Sign up</button>

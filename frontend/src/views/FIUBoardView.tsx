@@ -422,14 +422,14 @@ export class FIUBoardView extends FIUView<Props, State> {
     }
 
     /** Opens confirmation modal before deleting a board. */
-    private openBoardDeleteConfirm = () => {
-        if (!this.state.selectedBoardIdForRemoval) return
-        this.setState({ confirmBoardDeleteOpen: true })
+    private openBoardDeleteConfirm = (boardId?: string) => {
+        if (!boardId) return
+        this.setState({ selectedBoardIdForRemoval: boardId, confirmBoardDeleteOpen: true })
     }
 
     /** Closes the board deletion confirmation modal. */
     private closeBoardDeleteConfirm = () => {
-        this.setState({ confirmBoardDeleteOpen: false })
+        this.setState({ confirmBoardDeleteOpen: false, selectedBoardIdForRemoval: '' })
     }
 
     /** Submits board rename and optional group assignment updates. */
@@ -469,7 +469,6 @@ export class FIUBoardView extends FIUView<Props, State> {
         const {
             createBoardName,
             createBoardEui,
-            selectedBoardIdForRemoval,
             editPopupOpen,
             editBoardName,
             editGroupId,
@@ -488,22 +487,29 @@ export class FIUBoardView extends FIUView<Props, State> {
         return (
             <div className="board-management-page">
                 <p className="board-management-subtitle">
-                    Manage your boards, device IDs, and group assignments.
+                    Manage your boards and device IDs.
                 </p>
 
-                <div className="board-management-row">
-                    <input
-                        className="board-management-input"
-                        placeholder="Board name"
-                        value={createBoardName}
-                        onChange={(event) => this.setState({ createBoardName: event.target.value })}
-                    />
-                    <input
-                        className="board-management-input"
-                        placeholder="Device EUI"
-                        value={createBoardEui}
-                        onChange={(event) => this.setState({ createBoardEui: event.target.value })}
-                    />
+                {/* Add Board Form */}
+                <div className="board-add-form">
+                    <div className="form-field">
+                        <label className="form-field-label">Board Name</label>
+                        <input
+                            className="board-management-input"
+                            placeholder="Enter board name"
+                            value={createBoardName}
+                            onChange={(event) => this.setState({ createBoardName: event.target.value })}
+                        />
+                    </div>
+                    <div className="form-field">
+                        <label className="form-field-label">Device ID</label>
+                        <input
+                            className="board-management-input"
+                            placeholder="Enter Device EUI"
+                            value={createBoardEui}
+                            onChange={(event) => this.setState({ createBoardEui: event.target.value })}
+                        />
+                    </div>
                     <button
                         type="button"
                         className="board-management-button"
@@ -514,29 +520,41 @@ export class FIUBoardView extends FIUView<Props, State> {
                     </button>
                 </div>
 
-                <div className="board-management-row">
-                    <select
-                        className="board-management-input"
-                        value={selectedBoardIdForRemoval}
-                        onChange={(event) =>
-                            this.setState({ selectedBoardIdForRemoval: event.target.value })
-                        }
-                    >
-                        <option value="">Select board to remove</option>
-                        {boards.map((board) => (
-                            <option key={board.id} value={board.id}>
-                                {board.display_name ?? 'Unnamed Board'}
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        type="button"
-                        className="board-management-danger"
-                        disabled={boardActionBusy || !selectedBoardIdForRemoval}
-                        onClick={this.openBoardDeleteConfirm}
-                    >
-                        Remove Board
-                    </button>
+                {boardActionError && <p className="board-management-error">{boardActionError}</p>}
+                {boardActionSuccess && <p className="board-management-success">{boardActionSuccess}</p>}
+
+                {/* Boards List */}
+                <p className="boards-section-title">Boards</p>
+                <div className="board-management-list" aria-label="Board list">
+                    {boards.length === 0 && <p className="board-management-placeholder">No boards found.</p>}
+                    {boards.map((board) => (
+                        <div key={board.id} className="board-card">
+                            <div className="board-card-header">
+                                <h3 className="board-card-title">{board.display_name ?? 'Unnamed Board'}</h3>
+                                <div className="board-card-actions">
+                                    <button
+                                        type="button"
+                                        className="board-management-button"
+                                        onClick={() => this.openEditPopup(board)}
+                                        disabled={boardActionBusy}
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="board-management-danger"
+                                        onClick={() => this.openBoardDeleteConfirm(board.id)}
+                                        disabled={boardActionBusy}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                            <p className="board-card-device-id">
+                                Device ID: {board.device_eui ?? 'Unavailable'}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 <ConfirmDialog
@@ -552,30 +570,6 @@ export class FIUBoardView extends FIUView<Props, State> {
                     confirmLabel="Confirm Remove"
                     cancelLabel="Cancel"
                 />
-
-                {boardActionError && <p className="board-management-error">{boardActionError}</p>}
-                {boardActionSuccess && <p className="board-management-success">{boardActionSuccess}</p>}
-
-                <div className="board-management-list" aria-label="Board list">
-                    {boards.length === 0 && <p>No boards found.</p>}
-                    {boards.map((board) => (
-                        <div key={board.id} className="board-management-item">
-                            <button type="button" className="board-management-link">
-                                {board.display_name ?? 'Unnamed Board'}
-                            </button>
-                            <span className="board-management-eui">
-                                deviceEUI: {board.device_eui ?? 'Unavailable'}
-                            </span>
-                            <button
-                                type="button"
-                                className="board-management-button"
-                                onClick={() => this.openEditPopup(board)}
-                            >
-                                Edit
-                            </button>
-                        </div>
-                    ))}
-                </div>
 
                 {editPopupOpen && (
                     <Modal
@@ -656,9 +650,9 @@ export class FIUBoardView extends FIUView<Props, State> {
 
     /** Returns the title for the currently active sidebar modal action. */
     private getModalTitle(action: SidebarModalAction | null): string {
-        if (action === 'board-management') return 'Board Management'
-        if (action === 'geofence-management') return 'Geofence Management'
-        if (action === 'group-settings') return 'Group Settings'
+        if (action === 'board-management') return 'Boards'
+        if (action === 'geofence-management') return 'Geofences'
+        if (action === 'group-settings') return 'Groups'
         return 'Menu'
     }
 
@@ -800,7 +794,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                                     className="sidebar-link"
                                     onClick={() => this.openModalForAction('board-management')}
                                 >
-                                    Board Management
+                                    Boards
                                 </button>
                             </li>
                             <li>
@@ -809,7 +803,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                                     className="sidebar-link"
                                     onClick={() => this.openModalForAction('geofence-management')}
                                 >
-                                    Geofence Management
+                                    Geofences
                                 </button>
                             </li>
                             <li>
@@ -818,7 +812,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                                     className="sidebar-link"
                                     onClick={() => this.openModalForAction('group-settings')}
                                 >
-                                    Group Settings
+                                    Groups
                                     {pendingGroupCount > 0 && (
                                         <span className="sidebar-link-counter" aria-label="Pending group requests">
                                             {pendingGroupCount}
@@ -832,7 +826,7 @@ export class FIUBoardView extends FIUView<Props, State> {
                                     className="sidebar-link"
                                     onClick={this.openLogsModal}
                                 >
-                                    Logs Playback
+                                    Playback Logs
                                 </button>
                             </li>
                         </ul>

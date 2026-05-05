@@ -411,331 +411,397 @@ export class FIUGroupView extends FIUView<FIUGroupViewProps, State> {
                         <p className="board-management-placeholder">No groups found.</p>
                     ) : (
                         <div className="board-management-list" aria-label="Group list">
-                            {groups.map((group) => (
-                                <div key={group.id} className="board-management-item">
-                                <div className="group-item-main">
-                                    <strong>{group.name ?? 'Untitled Group'}</strong>
-                                    {/* <span className="group-item-id">UUID: {group.id}</span> */}
-                                </div>
-                                <div className="group-item-actions">
-                                    <label className="geofence-toggle" style={{ marginRight: 12 }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={this.props.groupVisibilityById[group.id] !== false}
-                                            onChange={(e) => this.props.onSetGroupVisibility(group.id, e.target.checked)}
-                                        />
-                                        <span className="geofence-toggle-label">
-                                            {this.props.groupVisibilityById[group.id] === false ? 'Off' : 'On'}
-                                        </span>
-                                    </label>
+                            {groups.map((group) => {
+                                const myRole = getMyRoleForGroup(group)
+                                const isTracking = this.props.groupVisibilityById[group.id] !== false
+                                const groupMembers_ = groupMembers.filter((m) => m.group_id === group.id)
+                                const groupBoards = boards.filter((b) => b.group_id === group.id)
+                                const groupJoinRequests = pendingJoinRequests.filter((r) => r.group_id === group.id)
 
-                                    <button
-                                        type="button"
-                                        className="board-management-button"
-                                        onClick={() => this.openEditModal(group)}
-                                        disabled={busy || !canModerate(getMyRoleForGroup(group))}
-                                        style={{ display: canModerate(getMyRoleForGroup(group)) ? undefined : 'none' }}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="board-management-danger"
-                                        onClick={() => this.openGroupDeleteConfirm(group.id)}
-                                        disabled={busy}
-                                        style={{ display: getMyRoleForGroup(group) === 'owner' ? undefined : 'none' }}
-                                    >
-                                        Remove
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="board-management-button"
-                                        onClick={() =>
-                                            this.setState((prev) => ({
-                                                shareGroupId: prev.shareGroupId === group.id ? null : group.id,
-                                            }))
-                                        }
-                                        disabled={busy}
-                                        style={{ display: canModerate(getMyRoleForGroup(group)) ? undefined : 'none' }}
-                                    >
-                                        Share
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="board-management-button"
-                                        onClick={() => this.openLogsModal(group.id)}
-                                        disabled={busy}
-                                    >
-                                        Logs
-                                    </button>
-
-                                    {getMyRoleForGroup(group) !== 'owner' ? (
-                                        <button
-                                            type="button"
-                                            className="board-management-danger"
-                                            onClick={async () => {
-                                                try {
-                                                    this.setBusy(true)
-                                                    this.clearFeedback()
-                                                    await this.props.onLeaveGroup(group.id)
-                                                    this.setState({ success: 'Left group.' })
-                                                } catch (err) {
-                                                    this.setState({
-                                                        error: this.getErrorMessage(err, 'Unable to leave group.'),
-                                                    })
-                                                } finally {
-                                                    this.setBusy(false)
-                                                }
-                                            }}
-                                            disabled={busy}
-                                        >
-                                            Leave
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="board-management-button"
-                                            onClick={() =>
-                                                this.setState((prev) => ({
-                                                    transferGroupId: prev.transferGroupId === group.id ? null : group.id,
-                                                    transferToUserId: '',
-                                                }))
-                                            }
-                                            disabled={busy}
-                                        >
-                                            Transfer
-                                        </button>
-                                    )}
-                                </div>
-
-                                {shareGroupId === group.id && (
-                                    <div className="group-share-panel" aria-label="Group share panel">
-                                        <span className="group-item-id">UUID: {group.id}</span>
-                                        <button
-                                            type="button"
-                                            className="board-management-button"
-                                            onClick={() => this.handleCopyUuid(group.id)}
-                                        >
-                                            Copy
-                                        </button>
-                                        <a
-                                            className="board-management-button group-email-link"
-                                            href={`mailto:?subject=Join my aWhere tracking group (${group.name})&body=Use this group UUID to request access: ${group.id}`}
-                                        >
-                                            Email
-                                        </a>
-                                    </div>
-                                )}
-
-                                {pendingJoinRequests
-                                    .filter((request) => request.group_id === group.id)
-                                    .filter(() => canModerate(getMyRoleForGroup(group)))
-                                    .map((request) => (
-                                        <div
-                                            key={request.id}
-                                            className="group-join-request-row"
-                                            aria-label="Pending group request"
-                                        >
-                                            <span className="group-request-user">
-                                                Request from: {requesterLabelById[request.requester_id] ?? request.requester_id}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                className="board-management-button"
-                                                onClick={() =>
-                                                    this.handleRespondToRequest(request.id, true)
-                                                }
-                                                disabled={busy}
-                                            >
-                                                Accept
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="board-management-danger"
-                                                onClick={() =>
-                                                    this.handleRespondToRequest(request.id, false)
-                                                }
-                                                disabled={busy}
-                                            >
-                                                Decline
-                                            </button>
-                                        </div>
-                                    ))}
-
-                                {transferGroupId === group.id && getMyRoleForGroup(group) === 'owner' && (
-                                    <div className="group-share-panel" aria-label="Transfer ownership panel">
-                                        <span className="group-item-id">Transfer ownership to:</span>
-                                        <select
-                                            className="board-management-input board-edit-compact"
-                                            value={transferToUserId}
-                                            onChange={(e) => this.setState({ transferToUserId: e.target.value })}
-                                            disabled={busy}
-                                        >
-                                            <option value="">Select admin</option>
-                                            {groupMembers
-                                                .filter((m) => m.group_id === group.id)
-                                                .filter((m) => getDisplayRoleForMember(group, m) === 'admin')
-                                                .map((m) => (
-                                                    <option key={m.user_id} value={m.user_id}>
-                                                        {m.user_name}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                        <button
-                                            type="button"
-                                            className="board-management-danger"
-                                            onClick={async () => {
-                                                try {
-                                                    this.setBusy(true)
-                                                    this.clearFeedback()
-                                                    await this.props.onTransferOwnership(group.id, transferToUserId)
-                                                    this.setState({ success: 'Ownership transferred.', transferGroupId: null, transferToUserId: '' })
-                                                } catch (err) {
-                                                    this.setState({
-                                                        error: this.getErrorMessage(err, 'Unable to transfer ownership.'),
-                                                    })
-                                                } finally {
-                                                    this.setBusy(false)
-                                                }
-                                            }}
-                                            disabled={busy || !transferToUserId}
-                                        >
-                                            Confirm
-                                        </button>
-                                    </div>
-                                )}
-
-                                <div className="group-members-row" aria-label="Group users">
-                                    <span className="group-request-user">Users in group:</span>
-                                    {groupMembers.filter((member) => member.group_id === group.id).length === 0 ? (
-                                        <span className="board-management-placeholder">No users yet.</span>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            {groupMembers
-                                                .filter((member) => member.group_id === group.id)
-                                                .map((member) => {
-                                                    const myRole = getMyRoleForGroup(group)
-                                                    const targetRole = getDisplayRoleForMember(group, member)
-                                                    const canEditMembers = canModerate(myRole)
-                                                    const isSelf = this.props.userId && member.user_id === this.props.userId
-
-                                                    const canPromote =
-                                                        canEditMembers &&
-                                                        targetRole === 'member' &&
-                                                        !isSelf
-
-                                                    const canDemote =
-                                                        myRole === 'owner' &&
-                                                        targetRole === 'admin' &&
-                                                        !isSelf
-
-                                                    const canRemove =
-                                                        !isSelf &&
-                                                        ((myRole === 'owner' && (targetRole === 'admin' || targetRole === 'member')) ||
-                                                            (myRole === 'admin' && targetRole === 'member'))
-
-                                                    return (
-                                                        <div
-                                                            key={`${member.group_id}-${member.user_id}`}
-                                                            style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+                                return (
+                                    <div key={group.id} className="board-management-item">
+                                        {/* HEADER SECTION */}
+                                        <div className="group-header-container">
+                                            <div>
+                                                <h3 className="group-header-title">{group.name ?? 'Untitled Group'}</h3>
+                                                <p className="group-header-status">
+                                                    {isTracking ? 'Tracking enabled' : 'Tracking disabled'}
+                                                </p>
+                                            </div>
+                                            <label className="geofence-toggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isTracking}
+                                                    onChange={(e) => this.props.onSetGroupVisibility(group.id, e.target.checked)}
+                                                />
+                                                <span className="geofence-toggle-label">
+                                                    {isTracking ? 'On' : 'Off'}
+                                                </span>
+                                            </label>
+                                            <details className="group-header-menu-details">
+                                                <summary className="group-header-menu">⋯</summary>
+                                                <div className="group-header-menu-dropdown">
+                                                    {canModerate(myRole) && (
+                                                        <button
+                                                            type="button"
+                                                            className="group-header-menu-item"
+                                                            onClick={() => this.openEditModal(group)}
+                                                            disabled={busy}
                                                         >
-                                                            <span className="group-member-pill">{member.user_name}</span>
-                                                            <span className="group-board-pill">{targetRole}</span>
+                                                            Edit group
+                                                        </button>
+                                                    )}
+                                                    {canModerate(myRole) && (
+                                                        <button
+                                                            type="button"
+                                                            className="group-header-menu-item"
+                                                            onClick={() =>
+                                                                this.setState((prev) => ({
+                                                                    shareGroupId: prev.shareGroupId === group.id ? null : group.id,
+                                                                }))
+                                                            }
+                                                            disabled={busy}
+                                                        >
+                                                            Share invite
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        className="group-header-menu-item"
+                                                        onClick={() => this.openLogsModal(group.id)}
+                                                        disabled={busy}
+                                                    >
+                                                        Activity logs
+                                                    </button>
+                                                </div>
+                                            </details>
+                                        </div>
 
-                                                            {canPromote && (
+                                        {/* ASSIGNED DEVICES SECTION */}
+                                        <div className="group-section" aria-label="Assigned devices">
+                                            <h4 className="group-section-title">Assigned Devices</h4>
+                                            <div className="group-devices-container">
+                                                {groupBoards.length === 0 ? (
+                                                    <p className="board-management-placeholder">No devices assigned.</p>
+                                                ) : (
+                                                    groupBoards.map((board) => (
+                                                        <span key={`${group.id}-${board.id}`} className="group-device-pill">
+                                                            {board.display_name ?? 'Unnamed Device'}
+                                                        </span>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* MEMBERS SECTION */}
+                                        <div className="group-section" aria-label="Members">
+                                            <h4 className="group-section-title">Members</h4>
+                                            {groupMembers_.length === 0 ? (
+                                                <p className="board-management-placeholder">No members yet.</p>
+                                            ) : (
+                                                <table className="group-members-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>Role</th>
+                                                            <th></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {groupMembers_.map((member) => {
+                                                            const targetRole = getDisplayRoleForMember(group, member)
+                                                            const isSelf = this.props.userId && member.user_id === this.props.userId
+
+                                                            const canPromote =
+                                                                canModerate(myRole) &&
+                                                                targetRole === 'member' &&
+                                                                !isSelf
+
+                                                            const canDemote =
+                                                                myRole === 'owner' &&
+                                                                targetRole === 'admin' &&
+                                                                !isSelf
+
+                                                            const canRemove =
+                                                                !isSelf &&
+                                                                ((myRole === 'owner' && (targetRole === 'admin' || targetRole === 'member')) ||
+                                                                    (myRole === 'admin' && targetRole === 'member'))
+
+                                                            const hasActions = canPromote || canDemote || canRemove
+
+                                                            return (
+                                                                <tr key={`${member.group_id}-${member.user_id}`}>
+                                                                    <td className="group-member-col-name">{member.user_name}</td>
+                                                                    <td className="group-member-col-role">
+                                                                        <span
+                                                                            className={`group-member-role-badge group-member-role-${targetRole}`}
+                                                                        >
+                                                                            {targetRole}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="group-member-col-actions">
+                                                                        {hasActions ? (
+                                                                            <details className="group-member-actions-menu">
+                                                                                <summary className="group-member-actions-summary">⋯</summary>
+                                                                                <div className="group-member-actions-dropdown">
+                                                                                    {canPromote && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="group-member-action-item"
+                                                                                            disabled={busy}
+                                                                                            onClick={async () => {
+                                                                                                try {
+                                                                                            this.setBusy(true)
+                                                                                            this.clearFeedback()
+                                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'admin')
+                                                                                            this.setState({ success: 'Member promoted.' })
+                                                                                        } catch (err) {
+                                                                                            this.setState({
+                                                                                                error: this.getErrorMessage(err, 'Unable to promote member.'),
+                                                                                            })
+                                                                                        } finally {
+                                                                                            this.setBusy(false)
+                                                                                        }
+                                                                                    }}
+                                                                                    >
+                                                                                        Make admin
+                                                                                    </button>
+                                                                                    )}
+                                                                                    {canDemote && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="group-member-action-item"
+                                                                                            disabled={busy}
+                                                                                            onClick={async () => {
+                                                                                                try {
+                                                                                            this.setBusy(true)
+                                                                                            this.clearFeedback()
+                                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'member')
+                                                                                            this.setState({ success: 'Admin demoted.' })
+                                                                                        } catch (err) {
+                                                                                            this.setState({
+                                                                                                error: this.getErrorMessage(err, 'Unable to demote admin.'),
+                                                                                            })
+                                                                                        } finally {
+                                                                                            this.setBusy(false)
+                                                                                        }
+                                                                                    }}
+                                                                                    >
+                                                                                        Make member
+                                                                                    </button>
+                                                                                    )}
+                                                                                    {canRemove && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="group-member-action-item danger"
+                                                                                            disabled={busy}
+                                                                                            onClick={async () => {
+                                                                                                try {
+                                                                                            this.setBusy(true)
+                                                                                            this.clearFeedback()
+                                                                                            await this.props.onRemoveMember(group.id, member.user_id)
+                                                                                            this.setState({ success: 'Member removed.' })
+                                                                                        } catch (err) {
+                                                                                            this.setState({
+                                                                                                error: this.getErrorMessage(err, 'Unable to remove member.'),
+                                                                                            })
+                                                                                        } finally {
+                                                                                            this.setBusy(false)
+                                                                                        }
+                                                                                    }}
+                                                                                    >
+                                                                                        Remove
+                                                                                    </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </details>
+                                                                        ) : null}
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            )}
+                                        </div>
+
+                                        {/* PENDING JOIN REQUESTS */}
+                                        {groupJoinRequests.length > 0 && canModerate(myRole) && (
+                                            <div className="group-section" aria-label="Pending requests">
+                                                <h4 className="group-section-title">Pending Requests</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                    {groupJoinRequests.map((request) => (
+                                                        <div
+                                                            key={request.id}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                gap: 8,
+                                                                paddingBottom: 8,
+                                                                borderBottom: '1px solid rgba(17, 24, 39, 0.08)',
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: 12, color: '#374151' }}>
+                                                                Request from: {requesterLabelById[request.requester_id] ?? request.requester_id}
+                                                            </span>
+                                                            <div style={{ display: 'flex', gap: 6 }}>
                                                                 <button
                                                                     type="button"
                                                                     className="board-management-button"
+                                                                    onClick={() =>
+                                                                        this.handleRespondToRequest(request.id, true)
+                                                                    }
                                                                     disabled={busy}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            this.setBusy(true)
-                                                                            this.clearFeedback()
-                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'admin')
-                                                                            this.setState({ success: 'Member promoted.' })
-                                                                        } catch (err) {
-                                                                            this.setState({
-                                                                                error: this.getErrorMessage(err, 'Unable to promote member.'),
-                                                                            })
-                                                                        } finally {
-                                                                            this.setBusy(false)
-                                                                        }
-                                                                    }}
                                                                 >
-                                                                    Make admin
+                                                                    Accept
                                                                 </button>
-                                                            )}
-
-                                                            {canDemote && (
-                                                                <button
-                                                                    type="button"
-                                                                    className="board-management-button"
-                                                                    disabled={busy}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            this.setBusy(true)
-                                                                            this.clearFeedback()
-                                                                            await this.props.onSetMemberRole(group.id, member.user_id, 'member')
-                                                                            this.setState({ success: 'Admin demoted.' })
-                                                                        } catch (err) {
-                                                                            this.setState({
-                                                                                error: this.getErrorMessage(err, 'Unable to demote admin.'),
-                                                                            })
-                                                                        } finally {
-                                                                            this.setBusy(false)
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    Make member
-                                                                </button>
-                                                            )}
-
-                                                            {canRemove && (
                                                                 <button
                                                                     type="button"
                                                                     className="board-management-danger"
+                                                                    onClick={() =>
+                                                                        this.handleRespondToRequest(request.id, false)
+                                                                    }
                                                                     disabled={busy}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            this.setBusy(true)
-                                                                            this.clearFeedback()
-                                                                            await this.props.onRemoveMember(group.id, member.user_id)
-                                                                            this.setState({ success: 'Member removed.' })
-                                                                        } catch (err) {
-                                                                            this.setState({
-                                                                                error: this.getErrorMessage(err, 'Unable to remove member.'),
-                                                                            })
-                                                                        } finally {
-                                                                            this.setBusy(false)
-                                                                        }
-                                                                    }}
                                                                 >
-                                                                    Remove
+                                                                    Decline
                                                                 </button>
-                                                            )}
+                                                            </div>
                                                         </div>
-                                                    )
-                                                })}
-                                        </div>
-                                    )}
-                                </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
 
-                                <div className="group-boards-row" aria-label="Boards in group">
-                                    <span className="group-request-user">Boards in group:</span>
-                                    {boards.filter((board) => board.group_id === group.id).length === 0 ? (
-                                        <span className="board-management-placeholder">No boards assigned.</span>
-                                    ) : (
-                                        boards
-                                            .filter((board) => board.group_id === group.id)
-                                            .map((board) => (
-                                                <span key={`${group.id}-${board.id}`} className="group-board-pill">
-                                                    {board.display_name ?? 'Unnamed Board'}
-                                                </span>
-                                            ))
-                                    )}
-                                </div>
-                                </div>
-                            ))}
+                                        {/* SHARE PANEL (CONDITIONAL) */}
+                                        {shareGroupId === group.id && (
+                                            <div className="group-section" aria-label="Share group">
+                                                <h4 className="group-section-title">Share Invite</h4>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                    <span className="group-item-id" style={{ flex: 1, minWidth: 200 }}>{group.id}</span>
+                                                    <button
+                                                        type="button"
+                                                        className="board-management-button"
+                                                        onClick={() => this.handleCopyUuid(group.id)}
+                                                    >
+                                                        Copy
+                                                    </button>
+                                                    <a
+                                                        className="board-management-button group-email-link"
+                                                        href={`mailto:?subject=Join my aWhere tracking group (${group.name})&body=Use this group UUID to request access: ${group.id}`}
+                                                    >
+                                                        Email
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* DANGER ZONE SECTION */}
+                                        <div className="danger-zone">
+                                            <h4 className="danger-zone-title">Danger Zone</h4>
+                                            <p className="danger-zone-description">These actions cannot be undone.</p>
+                                            <div className="danger-zone-actions">
+                                                {myRole === 'owner' && (
+                                                    <button
+                                                        type="button"
+                                                        className="danger-zone-button"
+                                                        onClick={() =>
+                                                            this.setState((prev) => ({
+                                                                transferGroupId: prev.transferGroupId === group.id ? null : group.id,
+                                                                transferToUserId: '',
+                                                            }))
+                                                        }
+                                                        disabled={busy}
+                                                    >
+                                                        Transfer ownership
+                                                    </button>
+                                                )}
+                                                {myRole === 'owner' && (
+                                                    <button
+                                                        type="button"
+                                                        className="danger-zone-button"
+                                                        onClick={() => this.openGroupDeleteConfirm(group.id)}
+                                                        disabled={busy}
+                                                    >
+                                                        Delete group
+                                                    </button>
+                                                )}
+                                                {myRole !== 'owner' && (
+                                                    <button
+                                                        type="button"
+                                                        className="danger-zone-button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                this.setBusy(true)
+                                                                this.clearFeedback()
+                                                                await this.props.onLeaveGroup(group.id)
+                                                                this.setState({ success: 'Left group.' })
+                                                            } catch (err) {
+                                                                this.setState({
+                                                                    error: this.getErrorMessage(err, 'Unable to leave group.'),
+                                                                })
+                                                            } finally {
+                                                                this.setBusy(false)
+                                                            }
+                                                        }}
+                                                        disabled={busy}
+                                                    >
+                                                        Leave group
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* TRANSFER OWNERSHIP PANEL */}
+                                            {transferGroupId === group.id && myRole === 'owner' && (
+                                                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(185, 28, 28, 0.24)' }}>
+                                                    <label style={{ display: 'block', fontSize: 12, marginBottom: 6, color: '#111827' }}>
+                                                        Transfer ownership to:
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                        <select
+                                                            className="board-management-input board-edit-compact"
+                                                            value={transferToUserId}
+                                                            onChange={(e) => this.setState({ transferToUserId: e.target.value })}
+                                                            disabled={busy}
+                                                            style={{ flex: 1, minWidth: 140 }}
+                                                        >
+                                                            <option value="">Select admin</option>
+                                                            {groupMembers_
+                                                                .filter((m) => getDisplayRoleForMember(group, m) === 'admin')
+                                                                .map((m) => (
+                                                                    <option key={m.user_id} value={m.user_id}>
+                                                                        {m.user_name}
+                                                                    </option>
+                                                                ))}
+                                                        </select>
+                                                        <button
+                                                            type="button"
+                                                            className="danger-zone-button"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    this.setBusy(true)
+                                                                    this.clearFeedback()
+                                                                    await this.props.onTransferOwnership(group.id, transferToUserId)
+                                                                    this.setState({ success: 'Ownership transferred.', transferGroupId: null, transferToUserId: '' })
+                                                                } catch (err) {
+                                                                    this.setState({
+                                                                        error: this.getErrorMessage(err, 'Unable to transfer ownership.'),
+                                                                    })
+                                                                } finally {
+                                                                    this.setBusy(false)
+                                                                }
+                                                            }}
+                                                            disabled={busy || !transferToUserId}
+                                                        >
+                                                            Confirm
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
 
