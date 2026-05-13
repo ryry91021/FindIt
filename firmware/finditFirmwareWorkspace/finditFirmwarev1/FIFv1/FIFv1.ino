@@ -10,7 +10,7 @@
 #include <WM1110_At_Config.hpp>
 #include <Tracker_Peripheral.hpp>
 
-#include <TinyGPSPlus.h>
+#include <TinyGPS++.h>
 #include <cstring>
 #include <cmath>
 
@@ -29,6 +29,7 @@ static constexpr uint32_t TEST_MODE_AUTO_TIMEOUT_MS = 30 * 60 * 1000;
 static constexpr uint32_t LOW_POWER_IDLE_DELAY_MS   = 1000;
 static constexpr uint32_t PRESS_WINDOW_MS           = 2500;
 static constexpr uint32_t BUTTON_DEBOUNCE_MS        = 350;
+
 // ============================================================
 // Sensor base
 // ============================================================
@@ -849,11 +850,11 @@ public:
       if (pressCount_ == 1) {
         controller_.requestManualCollect();
         Serial.println("SINGLE PRESS: manual/SOS uplink requested");
-      } 
+      }
       else if (pressCount_ == 2) {
         controller_.toggleTestMode();
         Serial.println("DOUBLE PRESS: toggled test mode");
-      } 
+      }
       else if (pressCount_ >= 3) {
         controller_.toggleRecordingMode();
         Serial.println("TRIPLE PRESS: toggled recording mode");
@@ -936,7 +937,9 @@ void loop() {
   uint32_t sleepTime = board.geo().lbmxProcess();
   board.geo().modemLedActionProcess();
 
-  if (controller.isActiveMode() || controller.isEmergencyMode()) {
+  // Always read external Grove GPS in active, emergency, or test mode.
+  // Test mode does not require GPS, but reading it here keeps debug output alive.
+  if (controller.isActiveMode() || controller.isEmergencyMode() || controller.isTestMode()) {
     board.uartGps().read();
   }
 
@@ -971,17 +974,21 @@ void loop() {
     Serial.println(board.geo().time_sync_flag ? "true" : "false");
   }
 
-  if (board.geo().time_sync_flag == true) {
-    buttonController.update(board.tracker());
+  // Always process the user button, even if LoRaWAN/LNS time sync is not ready.
+  buttonController.update(board.tracker());
 
-    if (!controller.isTestMode()) {
-      accel.read();
-      controller.updateShockState();
-    }
-
-    controller.updateMode();
-    controller.runCycle(smtc_modem_hal_get_time_in_ms());
+  // IMPORTANT:
+  // Do NOT block mode updates or uplink queueing behind time_sync_flag.
+  // The Grove GPS already provides valid coordinates.
+  // If LoRaWAN is not joined, these may queue/retry, but we still need to see
+  // QUEUEING NATIVE/CUSTOM GPS UPLINK in Serial to prove firmware behavior.
+  if (!controller.isTestMode()) {
+    accel.read();
+    controller.updateShockState();
   }
+
+  controller.updateMode();
+  controller.runCycle(smtc_modem_hal_get_time_in_ms());
 
   static uint8_t cmd_data_buf[244] = {0};
   static uint8_t cmd_data_size = 0;
